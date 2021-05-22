@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31313.79
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MageFollower", "MageFollower\MageFollower.csproj", "{DBE7D682-A33C-4A21-A3B8-745CA8D29CE5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DBE7D682-A33C-4A21-A3B8-745CA8D29CE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBE7D682-A33C-4A21-A3B8-745CA8D29CE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBE7D682-A33C-4A21-A3B8-745CA8D29CE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBE7D682-A33C-4A21-A3B8-745CA8D29CE5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {34D5E154-B6DF-4E8B-B4F8-95DB1658CB20}
+	EndGlobalSection
+EndGlobal
