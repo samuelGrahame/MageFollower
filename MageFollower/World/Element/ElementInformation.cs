@@ -79,6 +79,27 @@ namespace MageFollower.World.Element
                 (ElementType.Earth_Steel, 0.75f),
                 (ElementType.Earth_Crystal, 0.75f)
             ));
+
+            AddTo(new ElementInformation()
+            {
+                Element = ElementType.Air
+            }.AddEffects( // Good Against
+                (ElementType.Earth, 1.25f),
+                (ElementType.Earth_Steel, 1.25f),
+                (ElementType.Earth_Crystal, 1.25f),
+                (ElementType.Disbander, 1.25f)
+            ).AddEffects( // Neutral Against
+                (ElementType.Air, 1f),
+                (ElementType.Water, 1f)
+            ).AddEffects( // Bad Against
+                (ElementType.Fire, 0.75f),
+                (ElementType.Fire_Light, 0.75f),
+                (ElementType.Fire_Dark, 0.75f),
+                (ElementType.Water_Life, 0.75f),
+                (ElementType.Water_Poision, 0.75f),
+                (ElementType.Air_Ice, 0.90f),
+                (ElementType.Air_Lightning, 0.90f)
+            ));
         }
     }
 }
