@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace MageFollower.World
+namespace MageFollower.World.Element
 {
-    public enum Element
+    public enum ElementType
     {
         Fire,
         Water,
