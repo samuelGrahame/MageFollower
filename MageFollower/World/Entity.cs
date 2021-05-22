@@ -15,6 +15,8 @@ namespace MageFollower.World
         public ElementType ElementType { get; set; }
         public Race Race { get; set; }
 
+        public bool IsAlive => Health > 0.0001f;
+
         #region Skills
         // Profession
         /// <summary>
@@ -105,7 +107,7 @@ namespace MageFollower.World
         public Item Feet { get; set; }
         public Item Back { get; set; }        
 
-        public bool OnHit(double damage)
+        public bool OnHit(Entity fromTarget, double damage)
         {
             // do we have some kind of defence
             // do we have armor?
@@ -122,11 +124,13 @@ namespace MageFollower.World
 
             damage *= (baseArmor > 0 ? 
                 100.0f / (100.0f + baseArmor) : 
-                100.0f / 1.5f - (100.0f / (100.0f + baseArmor)));
+                1.5f - (100.0f / (100.0f + baseArmor)));
 
             this.Health -= damage;
             if (this.Health < 0)
                 this.Health = 0;
+
+            Console.WriteLine($"{fromTarget.Name} done {damage:n2} damage to {this.Name}");
 
             return this.Health <= 0;
         }
@@ -143,8 +147,8 @@ namespace MageFollower.World
             if (elementInformation.DamageMultiplier.ContainsKey(target.ElementType))
                 damageMultiplier = elementInformation.DamageMultiplier[target.ElementType];
 
-            return OnHit((baseDamage * damageMultiplier) + 
-                GetDamageBasedOffWeapon(RightHand));
+            return target.OnHit(this, (baseDamage + 
+                GetDamageBasedOffWeapon(RightHand)) * damageMultiplier);
         }
 
         public double GetDamageBasedOffWeapon(Item weapon)
