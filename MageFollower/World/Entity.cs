@@ -1,4 +1,5 @@
 ﻿using MageFollower.World.Element;
+using MageFollower.World.Items;
 using MageFollower.World.Skills;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,7 @@ namespace MageFollower.World
         public ElementType ElementType { get; set; }
         public Race Race { get; set; }
 
+        #region Skills
         // Profession
         /// <summary>
         /// Allows the character to create new items with collected materials used for crafting. (includes smelting { get; set; } cloth making { get; set; } woodwork { get; set; } smithing) Blacksmith
@@ -84,11 +86,44 @@ namespace MageFollower.World
         /// resourcing Allows the character to use more magic in a fight with less fatigue. increases with jewellery/belt)	Royal mage
         /// </summary>
         public Skill Mana { get; set; } = new Skill(SkillType.Mana, 0);
+        #endregion
 
-        public bool OnHit(Entity fromEntity, double damage)
+
+        /// <summary>
+        /// For Weapon
+        /// </summary>
+        public Item RightHand { get; set; }
+
+        /// <summary>
+        /// For Defence
+        /// </summary>
+        public Item LeftHand { get; set; }
+
+        public Item Head { get; set; }
+        public Item Body { get; set; }
+        public Item Belt { get; set; }
+        public Item Feet { get; set; }
+        public Item Back { get; set; }        
+
+        public bool OnHit(double damage)
         {
             // do we have some kind of defence
             // do we have armor?
+            double baseArmor = 0.0f;
+
+            baseArmor += Head?.Power ?? 0.0f;
+            baseArmor += Body?.Power ?? 0.0f;
+            baseArmor += Belt?.Power ?? 0.0f;
+            baseArmor += Feet?.Power ?? 0.0f;
+            baseArmor += Back?.Power ?? 0.0f;
+            baseArmor += LeftHand?.Power ?? 0.0f;
+
+            baseArmor *= Defence.Level;
+
+            damage *= (baseArmor > 0 ? 
+                100.0f / (100.0f + baseArmor) : 
+                100.0f / 1.5f - (100.0f / (100.0f + baseArmor)));
+
             this.Health -= damage;
             if (this.Health < 0)
                 this.Health = 0;
@@ -108,7 +143,28 @@ namespace MageFollower.World
             if (elementInformation.DamageMultiplier.ContainsKey(target.ElementType))
                 damageMultiplier = elementInformation.DamageMultiplier[target.ElementType];
 
-            return OnHit(this, (baseDamage * damageMultiplier));
+            return OnHit((baseDamage * damageMultiplier) + 
+                GetDamageBasedOffWeapon(RightHand));
+        }
+
+        public double GetDamageBasedOffWeapon(Item weapon)
+        {
+            if (weapon == null)
+                return 0.0f;
+            double baseDamange = 0.0f;
+            switch (weapon.Equipt)
+            {                
+                case EquiptType.Physical:
+                    baseDamange = Melee.Level;
+                    break;
+                case EquiptType.Ranged:
+                    baseDamange = Ranged.Level;
+                    break;
+                case EquiptType.Magic:
+                    baseDamange = Magic.Level;
+                    break;
+            }
+            return baseDamange * weapon.Power;
         }
     }
 }
