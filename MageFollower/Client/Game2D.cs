@@ -274,11 +274,27 @@ namespace MageFollower.Client
                 //    null, item == Player ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, SpriteEffects.None, 0);
             }
 
-            _spriteBatch.Draw(texture, Vector2.Zero - new Vector2(15, 15), new Color(Color.Black, 0.2f));
-            _spriteBatch.Draw(texture, Vector2.Zero, Color.White); // new Color(Color.White, 0.7f));
+            _spriteBatch.Draw(texture,
+                 Vector2.Zero - new Vector2(15, 15),
+                 null,
+                 new Color(Color.Black, 0.2f),
+                 1.0f,
+                 Vector2.Zero,
+                 1.0f,
+                 SpriteEffects.None,
+                 0.2f);
 
+            _spriteBatch.Draw(texture,
+                         Vector2.Zero,
+                         null,
+                         Color.White,
+                         1.0f,
+                         Vector2.Zero,
+                         1.0f,
+                         SpriteEffects.None,
+                         0.1f);
 
-            if(targetPos != null)
+            if (targetPos != null)
             {
                 if (MouseScale > 0.7f)
                 {
