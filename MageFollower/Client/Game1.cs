@@ -11,13 +11,17 @@ namespace MageFollower.Client
         private SpriteBatch _spriteBatch;
         private Texture2D texture;
         private Texture2D person01;
+        private Texture2D moveToX;
+
         private Vector2 playerPos;
         private Vector2 origin = new Vector2(128, 128);
-        private float Speed = 60;
+        private float Speed = 100;
         private float rotation;
         private float NintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float WorldRotation;
         private float WorldZoom = 1.0f;
+        private float MouseScale = 0.0f;
+
 
         private Vector2? targetPos = null;
 
@@ -26,6 +30,7 @@ namespace MageFollower.Client
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
+
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
 
@@ -33,11 +38,17 @@ namespace MageFollower.Client
 
             IsFixedTimeStep = true;  //Force the game to update at fixed time intervals
             TargetElapsedTime = TimeSpan.FromSeconds(1 / 60.0f);  //Set the time interval to 1/30th of a second            
+            
         }
 
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
+            _graphics.IsFullScreen = true;
+            _graphics.PreferredBackBufferWidth = 1920;
+            _graphics.PreferredBackBufferHeight = 1080;
+
+            _graphics.ApplyChanges();
 
             base.Initialize();
         }
@@ -49,7 +60,7 @@ namespace MageFollower.Client
 
             texture = Content.Load<Texture2D>("Trees/Tree01");
             person01 = Content.Load<Texture2D>("People/Person01_Idle");
-
+            moveToX = Content.Load<Texture2D>("Other/MoveToX");
             // TODO: use this.Content to load your game content here
         }
 
@@ -107,10 +118,20 @@ namespace MageFollower.Client
                 var ms = mouseState.Position;
                 Matrix inverseTransform = Matrix.Invert(_transform);
                 targetPos = Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+
+                MouseScale = 1.0f;
             }
+
+           
 
             if(targetPos != null)
             {
+                if (MouseScale > 0.7f)
+                {
+                    MouseScale -= 2f *
+                        (float)gameTime.ElapsedGameTime.TotalSeconds;
+                }
+
                 Vector2.Distance(targetPos.Value, playerPos);
 
                 if(AreInRange(3.0f, playerPos, targetPos.Value))
@@ -180,6 +201,24 @@ namespace MageFollower.Client
 
             _spriteBatch.Draw(texture, Vector2.Zero - new Vector2(15, 15), new Color(Color.Black, 0.2f));
             _spriteBatch.Draw(texture, Vector2.Zero, Color.White); // new Color(Color.White, 0.7f));
+
+            if(targetPos != null)
+            {
+                if (MouseScale > 0.7f)
+                {
+                    _spriteBatch.Draw(moveToX,
+                         targetPos.Value,
+                         null,
+                         Color.White,
+                         0.0f,
+                         new Vector2(16, 16),
+                         MouseScale,
+                         SpriteEffects.None,
+                         0f);
+                }
+                
+            }
+            
 
             _spriteBatch.End();
 
