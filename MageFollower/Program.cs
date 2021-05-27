@@ -11,7 +11,7 @@ namespace MageFollower
     {
         static void Main(string[] args)
         {
-            using (var game = new Game1())
+            using (var game = new Game2D())
                 game.Run();
 
             //var r = new Random();

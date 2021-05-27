@@ -5,7 +5,7 @@ using System;
 
 namespace MageFollower.Client
 {
-    public class Game1 : Game
+    public class Game2D : Game
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
@@ -27,7 +27,7 @@ namespace MageFollower.Client
 
         private Matrix _transform;
 
-        public Game1()
+        public Game2D()
         {
             _graphics = new GraphicsDeviceManager(this);
 
