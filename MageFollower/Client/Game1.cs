@@ -8,6 +8,7 @@ namespace MageFollower.Client
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
+        private Texture2D texture;
 
         public Game1()
         {
@@ -27,6 +28,8 @@ namespace MageFollower.Client
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
+            texture = Content.Load<Texture2D>("Trees/Tree01");
+
             // TODO: use this.Content to load your game content here
         }
 
@@ -45,6 +48,12 @@ namespace MageFollower.Client
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
             // TODO: Add your drawing code here
+
+            _spriteBatch.Begin();
+
+            _spriteBatch.Draw(texture, Vector2.Zero, Color.White);
+
+            _spriteBatch.End();
 
             base.Draw(gameTime);
         }
