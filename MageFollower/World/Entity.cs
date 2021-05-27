@@ -1,6 +1,7 @@
 ﻿using MageFollower.World.Element;
 using MageFollower.World.Items;
 using MageFollower.World.Skills;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,9 +12,18 @@ namespace MageFollower.World
     {
         public string Id { get; set; }
         public double Health { get; set; }
+        public double MaxHealth { get; set; }
         public string Name { get; set; }
         public ElementType ElementType { get; set; }
         public Race Race { get; set; }
+
+        public Vector2 Position { get; set; }
+        public float Speed { get; set; } = 100;
+        public float Rotation { get; set; }
+
+        public static Vector2 Origin = new Vector2(128, 128);
+
+        public Color Color { get; set; } = Color.White;
 
         public bool IsAlive => Health > 0.0001f;
 
@@ -129,6 +139,11 @@ namespace MageFollower.World
             this.Health -= damage;
             if (this.Health < 0)
                 this.Health = 0;
+
+            if(this.Health > this.MaxHealth)
+            {
+                this.Health = this.MaxHealth;
+            }
 
             Console.WriteLine($"{fromTarget.Name} done {damage:n2} damage to {this.Name}");
 
