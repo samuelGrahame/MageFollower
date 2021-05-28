@@ -28,7 +28,7 @@ namespace MageFollower.Client
 
         private float NintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float WorldRotation = 0.0f;
-        private float WorldZoom = 1.0f;
+        private float WorldZoom = 0.5f;
 
         private float MouseScale = 0.0f;
 
@@ -206,10 +206,11 @@ namespace MageFollower.Client
 
                     var thrd = new Thread(() =>
                     {
-                        // Incoming data from the client.                            
-                        while(true)
+                        // Incoming data from the client.
+                        string leftOver = "";
+                        while (true)
                         {
-                            string data = null;
+                            string data = leftOver;
                             byte[] bytes = null;
 
                             while (true)
@@ -217,15 +218,28 @@ namespace MageFollower.Client
                                 bytes = new byte[1024];
                                 int bytesRec = sender.Receive(bytes);
                                 data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                                if (data.EndsWith("<EOF>"))
+                                if (data.IndexOf("<EOF>") > -1)
                                 {
                                     break;
                                 }
                             }
-                            
+
                             var packets = data.Split("<EOF>");
-                            foreach (var item in packets)
+                            int length = packets.Length;
+
+                            if (!data.EndsWith("<EOF>"))
                             {
+                                leftOver = packets[length - 1];
+                                length--;
+                            }
+                            else
+                            {
+                                leftOver = "";
+                            }
+                            for (int index = 0; index < length; index++)
+                            {
+                                var item = packets[index];
+
                                 if (item.StartsWith("PASS:"))
                                 {
                                     // after i connect
@@ -261,28 +275,23 @@ namespace MageFollower.Client
                                 else if (item.StartsWith("POS:"))
                                 {
                                     var IdAndTransform = item.Substring("POS:".Length, item.Length - "POS:".Length);
-                                    var index = IdAndTransform.IndexOf(":");
-                                    var id = IdAndTransform.Substring(0, index);
+                                    var placeOfSemi = IdAndTransform.IndexOf(":");
+                                    var id = IdAndTransform.Substring(0, placeOfSemi);
 
                                     if (string.CompareOrdinal(id, playerId) != 0)
                                     {
-                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(index + 1));
-                                        var foundPlayer = Entities.FirstOrDefault(o => string.CompareOrdinal(o.Id, id) == 0);
-
+                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1));
                                         if (EntitiesById.ContainsKey(id))
                                         {
                                             var entity = EntitiesById[id];
                                             entity.TargetPos = transform.Position;
                                             entity.TargetRotation = transform.Rotation;
-                                            entity.LerpToTarger = true;
-                                            entity.TotalTimeLerp = 0.0f;
+                                            entity.TotalTimeLerp = 0;
                                         }
                                     }
                                 }
-                            }
-
-                            
-                            Console.WriteLine("Text received : {0}", data);
+                            }                            
+                           // Console.WriteLine("Text received : {0}", data);
                         }
                         
                     });
@@ -311,8 +320,9 @@ namespace MageFollower.Client
 
         private Queue<string> dataToSend = new Queue<string>();
 
-        private double MoveTimer = (1000 / 30.0f);
-
+        private double MoveTimer = (1000 / 20.0f);
+        private Vector2 prevPos;
+        private float prevRotation;
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -325,10 +335,7 @@ namespace MageFollower.Client
             var mouseState = Mouse.GetState();
 
             if (Player != null)
-            {
-                var prevPos = Player.Position;
-                var prevRotation = Player.Rotation;
-
+            {                
                 Vector2 vectorToMove = Vector2.Zero;
 
                 if (keyboard.IsKeyDown(Keys.W))
@@ -368,8 +375,6 @@ namespace MageFollower.Client
                             (float)gameTime.ElapsedGameTime.TotalSeconds;
                     }
 
-                    Vector2.Distance(targetPos.Value, Player.Position);
-
                     if (AreInRange(3.0f, Player.Position, targetPos.Value))
                     {
                         targetPos = null;
@@ -398,10 +403,14 @@ namespace MageFollower.Client
 
                 LastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                if (LastTimeSentToServer > MoveTimer)
+                if (LastTimeSentToServer > MoveTimer && 
+                    (prevPos != Player.Position || prevRotation != Player.Rotation))
                 {
                     LastTimeSentToServer = 0;
                     dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation })}<EOF>");
+
+                    prevPos = Player.Position;
+                    prevRotation = Player.Rotation;
                 }                
                 //PacketsToSend
             }
@@ -419,17 +428,23 @@ namespace MageFollower.Client
 
             foreach (var item in Entities)
             {
-                if(item != Player && item.LerpToTarger)
+                if(item != Player && (item.TargetPos != item.Position || item.TargetRotation != item.Rotation))
                 {
-                    item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                    if(item.TotalTimeLerp >= MoveTimer)
-                    {
-                        item.LerpToTarger = false;
-                        item.TotalTimeLerp = MoveTimer;
-                    }
+                    item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;                    
                     var percent = (float)(item.TotalTimeLerp / MoveTimer);
-                    item.Position = Vector2.Lerp(item.Position, item.TargetPos, percent);
-                    item.Rotation = MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
+                    if (item.TotalTimeLerp >= MoveTimer)
+                    {
+                        item.TotalTimeLerp = MoveTimer;
+                        item.Position = item.TargetPos;
+                    }
+                    if (item.TargetPos != item.Position)
+                    {
+                        item.Position = Vector2.LerpPrecise(item.Position, item.TargetPos, percent);
+                    }
+
+
+                    if (item.TargetRotation != item.Rotation)
+                        item.Rotation = item.TargetRotation;//; MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
                 }
             }
             

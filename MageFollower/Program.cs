@@ -147,7 +147,7 @@ namespace MageFollower
                 listener.Bind(localEndPoint);
                 // Specify how many requests a Socket can listen before it gives Server busy response.  
                 // We will listen 10 requests at a time  
-                listener.Listen(100);
+                listener.Listen(100000);
                 var dataToSend = new Queue<(string data, Socket exclude)>();
 
                 var sendUpdatesToClients = new Thread(() =>
@@ -197,28 +197,42 @@ namespace MageFollower
 
                     var thrd = new Thread((socketPass) =>
                     {
+                        string leftOver = "";
                         while (true)
                         {
                             var socketToUse = (Socket)socketPass;
                             // Incoming data from the client.    
-                            string data = null;
+                            string data = leftOver;
                             byte[] bytes = null;
 
                             while (true)
                             {
-                                bytes = new byte[128];
+                                bytes = new byte[1028];
                                 int bytesRec = socketToUse.Receive(bytes);
                                 data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                                if (data.EndsWith("<EOF>"))
+                                if (data.IndexOf("<EOF>") > -1)
                                 {
                                     break;
                                 }
                             }
 
                             var packets = data.Split("<EOF>");
+                            int length = packets.Length;
 
-                            foreach (var item in packets)
+                            if(!data.EndsWith("<EOF>"))
                             {
+                                leftOver = packets[length - 1];
+                                length--;
+                            }
+                            else
+                            {
+                                leftOver = "";
+                            }
+
+                            for (int index = 0; index < length; index++)
+                            {
+                                var item = packets[index];
+
                                 if (item.StartsWith("NEW:"))
                                 {
                                     var newEntity = new Entity()
@@ -246,10 +260,10 @@ namespace MageFollower
                                     // Send All Connected
                                     foreach (var entity in listOfEntities)
                                     {
-                                        if(entity != newEntity)
+                                        if (entity != newEntity)
                                         {
                                             msg = Encoding.ASCII.GetBytes("NEW:" + JsonConvert.SerializeObject(entity) + "<EOF>");
-                                            socketToUse.Send(msg);                                            
+                                            socketToUse.Send(msg);
                                         }
                                     }
                                 }
@@ -260,8 +274,7 @@ namespace MageFollower
                                     dataToSend.Enqueue(($"POS:{SocketToEntity[socketToUse].Id}:{JsonConvert.SerializeObject(transform)}<EOF>", socketToUse));
                                 }
                             }
-
-                            
+ 
                             Console.WriteLine("Text received : {0}", data);
                         }
                         
