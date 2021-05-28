@@ -106,8 +106,8 @@ namespace MageFollower
 
         public class Transform
         {
-            public Vector2 Position;
-            public float Rotation;
+            public Vector2 p;
+            public float r;
         }
 
         static string CreatePassword(int length)
