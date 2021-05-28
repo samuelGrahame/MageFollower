@@ -5,6 +5,7 @@ using MageFollower.World.Skills;
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
@@ -106,8 +107,10 @@ namespace MageFollower
 
         public class Transform
         {
-            public Vector2 p;
-            public float r;
+            [JsonProperty("p")]    
+            public Vector2 Position;
+            [JsonProperty("r")]
+            public float Rotation;
         }
 
         static string CreatePassword(int length)
@@ -148,16 +151,15 @@ namespace MageFollower
                 // Specify how many requests a Socket can listen before it gives Server busy response.  
                 // We will listen 10 requests at a time  
                 listener.Listen(100000);
-                var dataToSend = new Queue<(string data, Socket exclude)>();
+                var dataToSend = new ConcurrentQueue<(string data, Socket exclude)>();
 
                 var sendUpdatesToClients = new Thread(() =>
                 {
                     while(true)
                     {
                         if(dataToSend.Count > 0)
-                        {
-                            var dataPack = dataToSend.Dequeue();
-                            if(dataPack.data != null)
+                        {                            
+                            if(dataToSend.TryDequeue(out (string data, Socket exclude) dataPack) && dataPack.data != null)
                             {
                                 var keys = SocketToEntity.Keys;
                                 byte[] msg = Encoding.ASCII.GetBytes(dataPack.data);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -7,11 +8,16 @@ namespace MageFollower.World.Skills
     public class Skill
     {
         public static double XpPerLevel = 1000.0f;
-        public SkillType Type { get; set; }
-        public int Level { get; set; }
-        public double Xp { get; set; }
-        public double XpToLevel { get; set; }
 
+        [JsonProperty("i0")]
+        public SkillType Type { get; set; }
+        [JsonProperty("i1")]
+        public int Level { get; set; }
+        [JsonProperty("i2")]
+        public double Xp { get; set; }
+        [JsonProperty("i3")]
+        public double XpToLevel { get; set; }
+        [JsonProperty("i4")]
         public double Pending { get; set; }
 
         public Skill()

@@ -284,8 +284,8 @@ namespace MageFollower.Client
                                         if (EntitiesById.ContainsKey(id))
                                         {
                                             var entity = EntitiesById[id];
-                                            entity.TargetPos = transform.p;
-                                            entity.TargetRotation = transform.r;
+                                            entity.TargetPos = transform.Position;
+                                            entity.TargetRotation = transform.Rotation;
                                             entity.TotalTimeLerp = 0;
                                         }
                                     }
@@ -407,7 +407,7 @@ namespace MageFollower.Client
                     (prevPos != Player.Position || prevRotation != Player.Rotation))
                 {
                     LastTimeSentToServer = 0;
-                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { p = Player.Position, r = Player.Rotation })}<EOF>");
+                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation })}<EOF>");
 
                     prevPos = Player.Position;
                     prevRotation = Player.Rotation;
