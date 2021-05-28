@@ -2,6 +2,7 @@
 using MageFollower.World.Items;
 using MageFollower.World.Skills;
 using Microsoft.Xna.Framework;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,20 +11,30 @@ namespace MageFollower.World
 {
     public class Entity
     {
-        public string Id { get; set; }
-        public double Health { get; set; }
-        public double MaxHealth { get; set; }
-        public string Name { get; set; }
-        public ElementType ElementType { get; set; }
-        public Race Race { get; set; }
+        public string Id;
+        public double Health;
+        public double MaxHealth;
+        public string Name;
+        public ElementType ElementType;
+        public Race Race;
 
-        public Vector2 Position { get; set; }
-        public float Speed { get; set; } = 100;
-        public float Rotation { get; set; }
+        public Vector2 Position;
+        public float Speed = 100;
+
+        [JsonIgnore]
+        public Vector2 TargetPos;
+        [JsonIgnore]
+        public float TargetRotation;
+        [JsonIgnore]
+        public bool LerpToTarger;
+        [JsonIgnore]
+        public double TotalTimeLerp;
+
+        public float Rotation;
 
         public static Vector2 Origin = new Vector2(128, 128);
 
-        public Color Color { get; set; } = Color.White;
+        public Color Color = Color.White;
 
         public bool IsAlive => Health > 0.0001f;
 
@@ -104,18 +115,18 @@ namespace MageFollower.World
         /// <summary>
         /// For Weapon
         /// </summary>
-        public Item RightHand { get; set; }
+        public Item RightHand;
 
         /// <summary>
         /// For Defence
         /// </summary>
-        public Item LeftHand { get; set; }
+        public Item LeftHand;
 
-        public Item Head { get; set; }
-        public Item Body { get; set; }
-        public Item Belt { get; set; }
-        public Item Feet { get; set; }
-        public Item Back { get; set; }        
+        public Item Head;
+        public Item Body;
+        public Item Belt;
+        public Item Feet;
+        public Item Back;  
 
         public bool OnHit(Entity fromTarget, double damage)
         {

@@ -3,8 +3,15 @@ using MageFollower.World.Element;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using static MageFollower.Program;
 
 namespace MageFollower.Client
 {
@@ -27,6 +34,7 @@ namespace MageFollower.Client
 
         private Entity Player;
         private List<Entity> Entities;
+        private Dictionary<string, Entity> EntitiesById = new Dictionary<string, Entity>();
 
         private Vector2? targetPos = null;
 
@@ -46,56 +54,67 @@ namespace MageFollower.Client
             
         }
 
+        private double LastTimeSentToServer = 0;
+
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
-            _graphics.IsFullScreen = true;
-            _graphics.PreferredBackBufferWidth = 1920;
-            _graphics.PreferredBackBufferHeight = 1080;
+            //_graphics.IsFullScreen = true;
+            //_graphics.PreferredBackBufferWidth = 1920;
+            //_graphics.PreferredBackBufferHeight = 1080;
 
             _graphics.ApplyChanges();
 
             Entities = new List<Entity>();
 
-            var fireMelee = new Entity()
-            {
-                ElementType = ElementType.Fire,
-                Health = 100,
-                MaxHealth = 100,
-                Name = "The Fire Swordsman",
-                Color = Color.LightSalmon
-            };
-            fireMelee.Melee.AddXp(10000.0f);
-            fireMelee.RightHand = new World.Items.Item()
-            {
-                Equipt = World.Items.EquiptType.Physical,
-                Power = 1.1f,
-                Type = World.Items.ItemType.Stick
-            };
+            StartClient();
 
-            Entities.Add(fireMelee);
+            //var fireMelee = new Entity()
+            //{
+            //    ElementType = ElementType.Fire,
+            //    Health = 100,
+            //    MaxHealth = 100,
+            //    Name = "The Fire Swordsman",
+            //    Color = Color.LightSalmon
+            //};
+            //fireMelee.Melee.AddXp(10000.0f);
+            //fireMelee.RightHand = new World.Items.Item()
+            //{
+            //    Equipt = World.Items.EquiptType.Physical,
+            //    Power = 1.1f,
+            //    Type = World.Items.ItemType.Stick
+            //};
 
-            Player = new Entity()
-            {
-                ElementType = ElementType.Water,
-                Health = 100,
-                MaxHealth = 100,
-                Name = "The Water Swordsman",
-                Color = Color.LightBlue
-            };
-            Player.Melee.AddXp(10000.0f);
-            Player.RightHand = new World.Items.Item()
-            {
-                Equipt = World.Items.EquiptType.Physical,
-                Power = 1.1f,
-                Type = World.Items.ItemType.Stick
-            };
+            //Entities.Add(fireMelee);
 
-            Entities.Add(Player);
+            //Player = new Entity()
+            //{
+            //    ElementType = ElementType.Water,
+            //    Health = 100,
+            //    MaxHealth = 100,
+            //    Name = "The Water Swordsman",
+            //    Color = Color.LightBlue
+            //};
+            //Player.Melee.AddXp(10000.0f);
+            //Player.RightHand = new World.Items.Item()
+            //{
+            //    Equipt = World.Items.EquiptType.Physical,
+            //    Power = 1.1f,
+            //    Type = World.Items.ItemType.Stick
+            //};
+
+            //Entities.Add(Player);
 
             base.Initialize();
         }
+        protected override void UnloadContent()
+        {
+            base.UnloadContent();
 
+            // Release the socket.    
+            sender.Shutdown(SocketShutdown.Both);
+            sender.Close();
+        }
         protected override void LoadContent()
         {
             IsMouseVisible = true;
@@ -114,8 +133,10 @@ namespace MageFollower.Client
 
         public Matrix get_transformation(GraphicsDevice graphicsDevice)
         {
+            var playerPos = Player == null ? Vector2.Zero : Player.Position;
+
             _transform =       // Thanks to o KB o for this solution
-              Matrix.CreateTranslation(new Vector3(-Player.Position.X, -Player.Position.Y, 0)) *
+              Matrix.CreateTranslation(new Vector3(-playerPos.X, -playerPos.Y, 0)) *
                                          Matrix.CreateRotationZ(WorldRotation) *
                                          Matrix.CreateScale(new Vector3(WorldZoom, WorldZoom, 1)) *
                                          Matrix.CreateTranslation(new Vector3(graphicsDevice.Viewport.Width * 0.5f,
@@ -128,7 +149,169 @@ namespace MageFollower.Client
             var dx = v1.X - v2.X;
             var dy = v1.Y - v2.Y;
             return dx * dx + dy * dy < range * range;
-}
+        }
+
+        private MouseState prevMouseState;
+
+        private Socket sender;
+        private string passCode;
+        private string playerId;
+
+        public void StartClient()
+        {
+            byte[] bytes = new byte[1024];
+
+            try
+            {
+                // Connect to a Remote server  
+                // Get Host IP Address that is used to establish a connection  
+                // In this case, we get one IP address of localhost that is IP : 127.0.0.1  
+                // If a host has multiple addresses, you will get a list of addresses  
+                IPHostEntry host = Dns.GetHostEntry("localhost");
+                IPAddress ipAddress = host.AddressList[0];
+                IPEndPoint remoteEP = new IPEndPoint(ipAddress, 11000);
+
+                // Create a TCP/IP  socket.    
+                sender = new Socket(ipAddress.AddressFamily,
+                    SocketType.Stream, ProtocolType.Tcp);
+
+                // Connect the socket to the remote endpoint. Catch any errors.    
+                try
+                {
+                    // Connect to Remote EndPoint  
+                    sender.Connect(remoteEP);
+
+                    Console.WriteLine("Socket connected to {0}",
+                        sender.RemoteEndPoint.ToString());
+
+                    // Encode the data string into a byte array.    
+                    byte[] msg = Encoding.ASCII.GetBytes("NEW:<EOF>");
+                    // Send the data through the socket.    
+                    int bytesSent = sender.Send(msg);
+
+                    var sendDataToServer = new Thread(() =>
+                    {
+                        while (true)
+                        {
+                            if (dataToSend.Count > 0)
+                            {
+                                var dataPack = dataToSend.Dequeue();
+                                byte[] msg = Encoding.ASCII.GetBytes(dataPack);
+                                sender.Send(msg);
+                            }
+                            Thread.Sleep(1);
+                        }
+                    });
+                    sendDataToServer.Start();
+
+                    var thrd = new Thread(() =>
+                    {
+                        // Incoming data from the client.                            
+                        while(true)
+                        {
+                            string data = null;
+                            byte[] bytes = null;
+
+                            while (true)
+                            {
+                                bytes = new byte[1024];
+                                int bytesRec = sender.Receive(bytes);
+                                data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                                if (data.EndsWith("<EOF>"))
+                                {
+                                    break;
+                                }
+                            }
+                            
+                            var packets = data.Split("<EOF>");
+                            foreach (var item in packets)
+                            {
+                                if (item.StartsWith("PASS:"))
+                                {
+                                    // after i connect
+                                    var PassAndId = item.Substring("PASS:".Length, item.Length - "PASS:".Length);
+
+                                    var arrary = PassAndId.Split(":");
+
+                                    passCode = arrary[0];
+                                    playerId = arrary[1];
+
+
+                                    if (EntitiesById.ContainsKey(playerId))
+                                    {
+                                        Player = EntitiesById[playerId];
+                                    }
+                                }
+                                else if (item.StartsWith("NEW:"))
+                                {
+                                    var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
+                                    var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer);
+
+                                    if (string.CompareOrdinal(newEntity.Id, playerId) == 0)
+                                    {
+                                        Player = newEntity;
+                                    }
+
+                                    if (!EntitiesById.ContainsKey(newEntity.Id))
+                                    {
+                                        EntitiesById[newEntity.Id] = newEntity;
+                                        Entities.Add(newEntity);
+                                    }
+                                }
+                                else if (item.StartsWith("POS:"))
+                                {
+                                    var IdAndTransform = item.Substring("POS:".Length, item.Length - "POS:".Length);
+                                    var index = IdAndTransform.IndexOf(":");
+                                    var id = IdAndTransform.Substring(0, index);
+
+                                    if (string.CompareOrdinal(id, playerId) != 0)
+                                    {
+                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(index + 1));
+                                        var foundPlayer = Entities.FirstOrDefault(o => string.CompareOrdinal(o.Id, id) == 0);
+
+                                        if (EntitiesById.ContainsKey(id))
+                                        {
+                                            var entity = EntitiesById[id];
+                                            entity.TargetPos = transform.Position;
+                                            entity.TargetRotation = transform.Rotation;
+                                            entity.LerpToTarger = true;
+                                            entity.TotalTimeLerp = 0.0f;
+                                        }
+                                    }
+                                }
+                            }
+
+                            
+                            Console.WriteLine("Text received : {0}", data);
+                        }
+                        
+                    });
+                    thrd.Start();
+
+                }
+                catch (ArgumentNullException ane)
+                {
+                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
+                }
+                catch (SocketException se)
+                {
+                    Console.WriteLine("SocketException : {0}", se.ToString());
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
+                }
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+        }
+
+        private Queue<string> dataToSend = new Queue<string>();
+
+        private double MoveTimer = (1000 / 30.0f);
 
         protected override void Update(GameTime gameTime)
         {
@@ -138,75 +321,119 @@ namespace MageFollower.Client
             // TODO: Add your update logic here
 
             var keyboard = Keyboard.GetState();
-            Vector2 vectorToMove = Vector2.Zero;
-
-            if (keyboard.IsKeyDown(Keys.W))
-                vectorToMove.Y -= 1;
-            if (keyboard.IsKeyDown(Keys.S))
-                vectorToMove.Y += 1;
-            if (keyboard.IsKeyDown(Keys.A))
-                vectorToMove.X -= 1;
-            if (keyboard.IsKeyDown(Keys.D))
-                vectorToMove.X += 1;
-
-
-            if (keyboard.IsKeyDown(Keys.Space))
-                Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
-
+           
             var mouseState = Mouse.GetState();
 
-            if(mouseState.LeftButton == ButtonState.Pressed)
+            if (Player != null)
             {
-                var ms = mouseState.Position;
-                Matrix inverseTransform = Matrix.Invert(_transform);
-                targetPos = Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+                var prevPos = Player.Position;
+                var prevRotation = Player.Rotation;
 
-                MouseScale = 1.0f;
-            }
+                Vector2 vectorToMove = Vector2.Zero;
 
-            if (Vector2.Zero != vectorToMove)
-            {
-                targetPos = null;
+                if (keyboard.IsKeyDown(Keys.W))
+                    vectorToMove.Y -= 1;
+                if (keyboard.IsKeyDown(Keys.S))
+                    vectorToMove.Y += 1;
+                if (keyboard.IsKeyDown(Keys.A))
+                    vectorToMove.X -= 1;
+                if (keyboard.IsKeyDown(Keys.D))
+                    vectorToMove.X += 1;
 
-                Player.Position += ((vectorToMove * Player.Speed) *
-                    (float)gameTime.ElapsedGameTime.TotalSeconds);
-            }
+                if (keyboard.IsKeyDown(Keys.Space))
+                    Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
 
-            if (targetPos != null)
-            {
-                if (MouseScale > 0.7f)
+                if (mouseState.LeftButton == ButtonState.Pressed)
                 {
-                    MouseScale -= 2f *
-                        (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    var ms = mouseState.Position;
+                    Matrix inverseTransform = Matrix.Invert(_transform);
+                    targetPos = Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+
+                    MouseScale = 1.0f;
                 }
 
-                Vector2.Distance(targetPos.Value, Player.Position);
-
-                if(AreInRange(3.0f, Player.Position, targetPos.Value))
+                if (Vector2.Zero != vectorToMove)
                 {
                     targetPos = null;
+
+                    Player.Position += ((vectorToMove * Player.Speed) *
+                        (float)gameTime.ElapsedGameTime.TotalSeconds);
                 }
-                else
-                {                    
-                    Vector2 dir = targetPos.Value - Player.Position;
 
-                    Vector2 dPos = Player.Position - targetPos.Value;
+                if (targetPos != null)
+                {
+                    if (MouseScale > 0.7f)
+                    {
+                        MouseScale -= 2f *
+                            (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    }
 
-                    dir.Normalize();
-                    Player.Position += dir * Player.Speed * (float)gameTime.ElapsedGameTime.TotalSeconds;                    
+                    Vector2.Distance(targetPos.Value, Player.Position);
+
+                    if (AreInRange(3.0f, Player.Position, targetPos.Value))
+                    {
+                        targetPos = null;
+                    }
+                    else
+                    {
+                        Vector2 dir = targetPos.Value - Player.Position;
+
+                        Vector2 dPos = Player.Position - targetPos.Value;
+
+                        dir.Normalize();
+                        Player.Position += dir * Player.Speed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+                        Player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                    }
+                }
+
+                if (targetPos == null)
+                {
+                    var ms = mouseState.Position;
+                    Matrix inverseTransform = Matrix.Invert(_transform);
+
+                    Vector2 dPos = Player.Position - Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+
                     Player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
                 }
+
+                LastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                if (LastTimeSentToServer > MoveTimer)
+                {
+                    LastTimeSentToServer = 0;
+                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation })}<EOF>");
+                }                
+                //PacketsToSend
             }
 
-            if (targetPos == null)
+            if (prevMouseState.ScrollWheelValue != mouseState.ScrollWheelValue)
             {
-                var ms = mouseState.Position;
-                Matrix inverseTransform = Matrix.Invert(_transform);
-                
-                Vector2 dPos = Player.Position - Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+                WorldZoom += (mouseState.ScrollWheelValue - prevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-                Player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                if (WorldZoom > 3)
+                    WorldZoom = 3;
+                if (WorldZoom < 0.5f)
+                    WorldZoom = 0.5f;
+
             }
+
+            foreach (var item in Entities)
+            {
+                if(item != Player && item.LerpToTarger)
+                {
+                    item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                    if(item.TotalTimeLerp >= MoveTimer)
+                    {
+                        item.LerpToTarger = false;
+                        item.TotalTimeLerp = MoveTimer;
+                    }
+                    var percent = (float)(item.TotalTimeLerp / MoveTimer);
+                    item.Position = Vector2.Lerp(item.Position, item.TargetPos, percent);
+                    item.Rotation = MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
+                }
+            }
+            
+            prevMouseState = mouseState;
 
             base.Update(gameTime);
         }
@@ -261,7 +488,7 @@ namespace MageFollower.Client
                 _spriteBatch.Draw(healthBarBase,
                     heathPos, 
                     new Rectangle(0, 0, (int)(100.0f * (item.Health / item.MaxHealth)), 10), 
-                    item == Player ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
+                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
 
                 //_spriteBatch.Draw(healthBarBase,
                 //    item.Position, null, Color.Black, 0.0f, Vector2.Zero, SpriteEffects.None, 0.0f);
