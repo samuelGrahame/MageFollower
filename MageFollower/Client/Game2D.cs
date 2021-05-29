@@ -186,7 +186,7 @@ namespace MageFollower.Client
 
                     Console.WriteLine("Socket connected to {0}",
                         sender.RemoteEndPoint.ToString());
-
+                    // TODO ALLOW TO LOAD FROM PASS CODE
                     // Encode the data string into a byte array.    
                     byte[] msg = Encoding.ASCII.GetBytes("NEW:<EOF>");
                     // Send the data through the socket.    
