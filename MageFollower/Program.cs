@@ -135,11 +135,31 @@ namespace MageFollower
             IPAddress ipAddress = host.AddressList[0];
             IPEndPoint localEndPoint = new(ipAddress, 11000);
 
+
+
+
             var listOfEntities = new List<Entity>();            
             var listOfSockets = new List<Socket>();
             var SocketToEntity = new Dictionary<Socket, Entity>();
             var PassCodeToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
+            var ListOfTrees = new List<Vector2>();
+
+            // load worlds;
+
+            try
+            {
+                var treesJson = JsonConvert.DeserializeObject<List<Vector2>>(System.IO.File.ReadAllText("Trees.Json"));
+                if(treesJson != null)
+                {
+                    ListOfTrees = treesJson;
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+            
 
             try
             {
@@ -152,6 +172,28 @@ namespace MageFollower
                 // We will listen 10 requests at a time  
                 listener.Listen(100000);
                 var dataToSend = new ConcurrentQueue<(string data, Socket exclude)>();
+
+                var saveGameWorld = new Thread(() =>
+                {
+                    while (true)
+                    {
+                        // Save every 30 seconds
+                        Thread.Sleep(5 * 1000);
+
+                        try
+                        {
+                            Console.WriteLine("Saving game world");
+
+                            System.IO.File.WriteAllText("Trees.Json", JsonConvert.SerializeObject(ListOfTrees));                            
+                        }
+                        catch (Exception)
+                        {
+                            Console.WriteLine("Failed to save game world");
+                        }
+                        
+                    }
+                });
+                saveGameWorld.Start();
 
                 var sendUpdatesToClients = new Thread(() =>
                 {
@@ -200,87 +242,166 @@ namespace MageFollower
 
                     var thrd = new Thread((socketPass) =>
                     {
-                        string leftOver = "";
-                        while (true)
-                        {
-                            var socketToUse = (Socket)socketPass;
-                            // Incoming data from the client.    
-                            string data = leftOver;
-                            byte[] bytes = null;
+                        var socketToUse = (Socket)socketPass;
 
+                        try
+                        {
+                            string leftOver = "";
                             while (true)
                             {
-                                bytes = new byte[1028];
-                                int bytesRec = socketToUse.Receive(bytes);
-                                data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                                if (data.IndexOf("<EOF>") > -1)
+                                
+                                // Incoming data from the client.    
+                                string data = leftOver;
+                                byte[] bytes = null;
+
+                                while (true)
                                 {
-                                    break;
+                                    bytes = new byte[1028];
+                                    int bytesRec = socketToUse.Receive(bytes);
+                                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                                    if (data.IndexOf("<EOF>") > -1)
+                                    {
+                                        break;
+                                    }
                                 }
-                            }
 
-                            var packets = data.Split("<EOF>");
-                            int length = packets.Length;
+                                var packets = data.Split("<EOF>");
+                                int length = packets.Length;
 
-                            if(!data.EndsWith("<EOF>"))
-                            {
-                                leftOver = packets[length - 1];
-                                length--;
-                            }
-                            else
-                            {
-                                leftOver = "";
-                            }
-
-                            for (int index = 0; index < length; index++)
-                            {
-                                var item = packets[index];
-
-                                if (item.StartsWith("NEW:"))
+                                if (!data.EndsWith("<EOF>"))
                                 {
-                                    var newEntity = new Entity()
+                                    leftOver = packets[length - 1];
+                                    length--;
+                                }
+                                else
+                                {
+                                    leftOver = "";
+                                }
+
+                                for (int index = 0; index < length; index++)
+                                {
+                                    var item = packets[index];
+
+                                    if (item.StartsWith("NEW:"))
                                     {
-                                        Health = 100,
-                                        MaxHealth = 100,
-                                        Name = "Human " + i.ToString()
-                                    };
-
-                                    newEntity.Id = i.ToString();
-
-                                    var newPass = CreatePassword(10);
-
-                                    listOfEntities.Add(newEntity);
-
-                                    byte[] msg = Encoding.ASCII.GetBytes($"PASS:{newPass}:{newEntity.Id}<EOF>");
-
-                                    SocketToEntity.Add(socketToUse, newEntity);
-                                    PassCodeToSocket.Add(newPass, (socketToUse, newEntity));
-                                    IdToSocket.Add(newEntity.Id, (socketToUse, newEntity));
-
-                                    socketToUse.Send(msg);
-                                    dataToSend.Enqueue(("NEW:" + JsonConvert.SerializeObject(newEntity) + "<EOF>", null));
-
-                                    // Send All Connected
-                                    foreach (var entity in listOfEntities)
-                                    {
-                                        if (entity != newEntity)
+                                        var newEntity = new Entity()
                                         {
-                                            msg = Encoding.ASCII.GetBytes("NEW:" + JsonConvert.SerializeObject(entity) + "<EOF>");
+                                            Health = 100,
+                                            MaxHealth = 100,
+                                            Name = "Human " + i.ToString(),
+                                            Speed = 400
+                                        };
+
+                                        newEntity.Id = i.ToString();
+
+                                        var newPass = CreatePassword(10);
+
+                                        listOfEntities.Add(newEntity);
+
+                                        byte[] msg = Encoding.ASCII.GetBytes($"PASS:{newPass}:{newEntity.Id}<EOF>");
+
+                                        SocketToEntity.Add(socketToUse, newEntity);
+                                        PassCodeToSocket.Add(newPass, (socketToUse, newEntity));
+                                        IdToSocket.Add(newEntity.Id, (socketToUse, newEntity));
+
+                                        socketToUse.Send(msg);
+                                        dataToSend.Enqueue(("NEW:" + JsonConvert.SerializeObject(newEntity) + "<EOF>", null));
+
+                                        // Send All Connected
+                                        foreach (var entity in listOfEntities)
+                                        {
+                                            if (entity != newEntity)
+                                            {
+                                                msg = Encoding.ASCII.GetBytes("NEW:" + JsonConvert.SerializeObject(entity) + "<EOF>");
+                                                socketToUse.Send(msg);
+                                            }
+                                        }
+                                        foreach (var tree in ListOfTrees)
+                                        {
+                                            msg = Encoding.ASCII.GetBytes($"SPAWN:TREE:{JsonConvert.SerializeObject(tree)}<EOF>");
                                             socketToUse.Send(msg);
                                         }
                                     }
+                                    else if (item.StartsWith("POS:"))
+                                    {
+                                        var newPos = item.Substring("POS:".Length, item.Length - "POS:".Length);
+                                        var transform = JsonConvert.DeserializeObject<Transform>(newPos);
+                                        var entitiy = SocketToEntity[socketToUse];
+                                        // TODO/Lasttime moved + workout distance . to see if teleport to ban...
+                                        entitiy.Position = transform.Position;
+                                        entitiy.Rotation = transform.Rotation;
+
+                                        dataToSend.Enqueue(($"POS:{entitiy.Id}:{JsonConvert.SerializeObject(transform)}<EOF>", socketToUse));
+                                    }
+                                    else if (item.StartsWith("SPAWN:"))
+                                    {
+                                        var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
+
+                                        var indexOfSem = itemToSpawn.IndexOf(":");
+                                        if(indexOfSem > -1)
+                                        {
+                                            string itemType = itemToSpawn.Substring(0, indexOfSem);
+                                            string posToSpawn = itemToSpawn.Substring(indexOfSem + 1);
+
+                                            if (String.CompareOrdinal(itemType, "TREE") == 0)
+                                            {                                                
+                                                try
+                                                {
+                                                    var vectorToPlace = posToSpawn == "ME" ? SocketToEntity[socketToUse].Position : JsonConvert.DeserializeObject<Vector2>(posToSpawn);//ListOfTrees
+                                                    vectorToPlace -= new Vector2(-35, 150);
+
+                                                    ListOfTrees.Add(vectorToPlace);
+                                                    dataToSend.Enqueue(($"SPAWN:TREE:{JsonConvert.SerializeObject(vectorToPlace)}<EOF>", socketToUse));
+                                                }
+                                                catch (Exception)
+                                                {
+
+                                                }
+                                            }
+                                        }
+
+                                        
+                                        //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
+                                    }
                                 }
-                                else if (item.StartsWith("POS:"))
-                                {
-                                    var newPos = item.Substring("POS:".Length, item.Length - "POS:".Length);
-                                    var transform = JsonConvert.DeserializeObject<Transform>(newPos);
-                                    dataToSend.Enqueue(($"POS:{SocketToEntity[socketToUse].Id}:{JsonConvert.SerializeObject(transform)}<EOF>", socketToUse));
-                                }
+
+                                Console.WriteLine("Text received : {0}", data);
                             }
- 
-                            Console.WriteLine("Text received : {0}", data);
+
                         }
-                        
+                        catch (Exception)
+                        {
+
+                        }
+                        finally
+                        {
+                            if(SocketToEntity.ContainsKey(socketToUse))
+                            {
+                                var entityToRemove = SocketToEntity[socketToUse];
+
+                                IdToSocket.Remove(entityToRemove.Id);
+                                SocketToEntity.Remove(socketToUse);
+
+                                listOfSockets.Remove(socketToUse);
+                                listOfEntities.Remove(entityToRemove);
+
+                                foreach (var item in PassCodeToSocket)
+                                {
+                                    if(item.Value.entity == entityToRemove)
+                                    {
+                                        PassCodeToSocket.Remove(item.Key);
+                                        break;
+                                    }
+                                }
+                                dataToSend.Enqueue(($"DEL:{entityToRemove.Id}<EOF>", socketToUse));
+                            }
+                            //var listOfEntities = new List<Entity>();
+                            //var listOfSockets = new List<Socket>();
+                            
+                            //var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
+                            //var ListOfTrees = new List<Vector2>();
+                        }
+
                     });
                     thrd.Start(handler);
                 }

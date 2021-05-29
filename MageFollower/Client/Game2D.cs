@@ -36,6 +36,9 @@ namespace MageFollower.Client
         private List<Entity> Entities;
         private Dictionary<string, Entity> EntitiesById = new Dictionary<string, Entity>();
 
+
+        private List<Vector2> ListOfTrees = new List<Vector2>();
+
         private Vector2? targetPos = null;
 
         private Matrix _transform;
@@ -59,14 +62,14 @@ namespace MageFollower.Client
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
-            //_graphics.IsFullScreen = true;
-            //_graphics.PreferredBackBufferWidth = 1920;
-            //_graphics.PreferredBackBufferHeight = 1080;
+            _graphics.IsFullScreen = true;
+            _graphics.PreferredBackBufferWidth = 1920;
+            _graphics.PreferredBackBufferHeight = 1080;
 
             _graphics.ApplyChanges();
 
             Entities = new List<Entity>();
-
+            
             StartClient();
 
             //var fireMelee = new Entity()
@@ -290,6 +293,47 @@ namespace MageFollower.Client
                                             entity.LerpToTarger = true;
                                         }
                                     }
+                                }else if(item.StartsWith("SPAWN:"))
+                                {
+                                    var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
+
+                                    var indexOfSem = itemToSpawn.IndexOf(":");
+                                    if(indexOfSem > -1)
+                                    {
+                                        string itemType = itemToSpawn.Substring(0, indexOfSem);
+                                        string posToSpawn = itemToSpawn.Substring(indexOfSem + 1);
+
+                                        if (String.CompareOrdinal(itemType, "TREE") == 0)
+                                        {
+                                            try
+                                            {
+                                                var vectorToPlace = JsonConvert.DeserializeObject<Vector2>(posToSpawn);//ListOfTrees
+                                                ListOfTrees.Add(vectorToPlace);                                                
+                                            }
+                                            catch (Exception)
+                                            {
+
+                                            }
+                                        }
+                                    }
+
+                                    
+                                    //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
+                                }else if(item.StartsWith("DEL:"))
+                                {
+                                    var idToRemove = item.Substring("DEL:".Length, item.Length - "DEL:".Length);
+                                    if (string.CompareOrdinal(idToRemove, playerId) == 0)
+                                    {
+                                        Player = null;
+                                    }
+
+                                    if (!EntitiesById.ContainsKey(idToRemove))
+                                    {
+                                        var enttiy = EntitiesById[idToRemove];
+                                        Entities.Remove(enttiy);
+                                        EntitiesById.Remove(idToRemove);
+                                    }
+                                    //DEL: { entityToRemove.Id}< EOF >
                                 }
                             }                            
                            // Console.WriteLine("Text received : {0}", data);
@@ -321,9 +365,41 @@ namespace MageFollower.Client
 
         private Queue<string> dataToSend = new Queue<string>();
 
-        private double MoveTimer = (1000 / 20.0f);
+        private double MoveTimer = (1000 / 30.0f);
         private Vector2 prevPos;
         private float prevRotation;
+
+        private KeyboardState prevKeyboardState;
+
+        private void SpawnItemAtPos(string type, Vector2 pos)
+        {
+            if(type == "TREE")
+            {
+                pos -= new Vector2(-35, 150);
+            }
+            dataToSend.Enqueue($"SPAWN:{type}:{JsonConvert.SerializeObject(pos)}<EOF>");
+            if (type == "TREE")
+            {
+                ListOfTrees.Add(pos);
+            }
+        }
+
+        private void SpawnItemAtMe(string type)
+        {            
+            dataToSend.Enqueue($"SPAWN:{type}:ME<EOF>");
+            if(type == "TREE")
+            {
+                ListOfTrees.Add(Player.Position - new Vector2(-35, 150));
+            }
+        }
+
+        private Vector2 GetMouseWorldPos(MouseState mouseState)
+        {
+            var ms = mouseState.Position;
+            Matrix inverseTransform = Matrix.Invert(_transform);
+            return  Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+        }
+
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -331,31 +407,28 @@ namespace MageFollower.Client
 
             // TODO: Add your update logic here
 
-            var keyboard = Keyboard.GetState();
-           
+            var keyboardState = Keyboard.GetState();           
             var mouseState = Mouse.GetState();
 
             if (Player != null)
             {                
                 Vector2 vectorToMove = Vector2.Zero;
 
-                if (keyboard.IsKeyDown(Keys.W))
+                if (keyboardState.IsKeyDown(Keys.W))
                     vectorToMove.Y -= 1;
-                if (keyboard.IsKeyDown(Keys.S))
+                if (keyboardState.IsKeyDown(Keys.S))
                     vectorToMove.Y += 1;
-                if (keyboard.IsKeyDown(Keys.A))
+                if (keyboardState.IsKeyDown(Keys.A))
                     vectorToMove.X -= 1;
-                if (keyboard.IsKeyDown(Keys.D))
+                if (keyboardState.IsKeyDown(Keys.D))
                     vectorToMove.X += 1;
 
-                if (keyboard.IsKeyDown(Keys.Space))
-                    Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                if (mouseState.RightButton == ButtonState.Pressed && prevMouseState.RightButton == ButtonState.Released)
+                        SpawnItemAtPos("TREE", GetMouseWorldPos(mouseState)); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
 
                 if (mouseState.LeftButton == ButtonState.Pressed)
-                {
-                    var ms = mouseState.Position;
-                    Matrix inverseTransform = Matrix.Invert(_transform);
-                    targetPos = Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+                {                    
+                    targetPos = GetMouseWorldPos(mouseState);
 
                     MouseScale = 1.0f;
                 }
@@ -450,6 +523,7 @@ namespace MageFollower.Client
             }
             
             prevMouseState = mouseState;
+            prevKeyboardState = keyboardState;
 
             base.Update(gameTime);
         }
@@ -464,7 +538,6 @@ namespace MageFollower.Client
                 SamplerState.AnisotropicClamp, 
                 null, null, null, get_transformation(GraphicsDevice));
 
-
             // _spriteBatch.Draw(person01, playerPos, Color.White);
             foreach (var item in Entities)
             {
@@ -477,7 +550,7 @@ namespace MageFollower.Client
                         Entity.Origin,
                         1.0f,
                         SpriteEffects.None,
-                        1.0f);
+                        0.9f);
 
                 _spriteBatch.Draw(person01,
                          item.Position,
@@ -504,7 +577,7 @@ namespace MageFollower.Client
                 _spriteBatch.Draw(healthBarBase,
                     heathPos, 
                     new Rectangle(0, 0, (int)(100.0f * (item.Health / item.MaxHealth)), 10), 
-                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
+                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.1f);
 
                 //_spriteBatch.Draw(healthBarBase,
                 //    item.Position, null, Color.Black, 0.0f, Vector2.Zero, SpriteEffects.None, 0.0f);
@@ -517,8 +590,10 @@ namespace MageFollower.Client
                 //    null, item == Player ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, SpriteEffects.None, 0);
             }
 
-            _spriteBatch.Draw(texture,
-                 Vector2.Zero - new Vector2(15, 15),
+            foreach (var item in ListOfTrees)
+            {
+                _spriteBatch.Draw(texture,
+                item - new Vector2(15, 15),
                  null,
                  new Color(Color.Black, 0.2f),
                  1.0f,
@@ -527,15 +602,18 @@ namespace MageFollower.Client
                  SpriteEffects.None,
                  0.2f);
 
-            _spriteBatch.Draw(texture,
-                         Vector2.Zero,
-                         null,
-                         Color.White,
-                         1.0f,
-                         Vector2.Zero,
-                         1.0f,
-                         SpriteEffects.None,
-                         0.1f);
+                _spriteBatch.Draw(texture,
+                             item,
+                             null,
+                             Color.White,
+                             1.0f,
+                             Vector2.Zero,
+                             1.0f,
+                             SpriteEffects.None,
+                             0.1f);
+            }
+
+            
 
             if (targetPos != null)
             {
