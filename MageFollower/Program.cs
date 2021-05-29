@@ -184,7 +184,8 @@ namespace MageFollower
                             }
 
                         }
-                        Thread.Sleep(1);
+                        if(dataToSend.Count == 0)
+                            Thread.Sleep(1);
                     }
                 });
                 sendUpdatesToClients.Start();

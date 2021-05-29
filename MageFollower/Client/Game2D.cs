@@ -287,6 +287,7 @@ namespace MageFollower.Client
                                             entity.TargetPos = transform.Position;
                                             entity.TargetRotation = transform.Rotation;
                                             entity.TotalTimeLerp = 0;
+                                            entity.LerpToTarger = true;
                                         }
                                     }
                                 }
@@ -428,7 +429,7 @@ namespace MageFollower.Client
 
             foreach (var item in Entities)
             {
-                if(item != Player && (item.TargetPos != item.Position || item.TargetRotation != item.Rotation))
+                if(item != Player && item.LerpToTarger)
                 {
                     item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;                    
                     var percent = (float)(item.TotalTimeLerp / MoveTimer);
@@ -436,12 +437,12 @@ namespace MageFollower.Client
                     {
                         item.TotalTimeLerp = MoveTimer;
                         item.Position = item.TargetPos;
+                        item.LerpToTarger = false;
                     }
                     if (item.TargetPos != item.Position)
                     {
                         item.Position = Vector2.LerpPrecise(item.Position, item.TargetPos, percent);
                     }
-
 
                     if (item.TargetRotation != item.Rotation)
                         item.Rotation = item.TargetRotation;//; MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
