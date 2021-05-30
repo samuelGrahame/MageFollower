@@ -393,16 +393,16 @@ namespace MageFollower.Client
             // test
             if (Player != null)
             {                
-                Vector2 vectorToMove = Vector2.Zero;
+                //Vector2 vectorToMove = Vector2.Zero;
 
-                if (keyboardState.IsKeyDown(Keys.W))
-                    vectorToMove.Y -= 1;
-                if (keyboardState.IsKeyDown(Keys.S))
-                    vectorToMove.Y += 1;
-                if (keyboardState.IsKeyDown(Keys.A))
-                    vectorToMove.X -= 1;
-                if (keyboardState.IsKeyDown(Keys.D))
-                    vectorToMove.X += 1;
+                //if (keyboardState.IsKeyDown(Keys.W))
+                //    vectorToMove.Y -= 1;
+                //if (keyboardState.IsKeyDown(Keys.S))
+                //    vectorToMove.Y += 1;
+                //if (keyboardState.IsKeyDown(Keys.A))
+                //    vectorToMove.X -= 1;
+                //if (keyboardState.IsKeyDown(Keys.D))
+                //    vectorToMove.X += 1;
 
                 if (mouseState.RightButton == ButtonState.Pressed && prevMouseState.RightButton == ButtonState.Released)
                         SpawnItemAtPos(itemTpAddOnRightClick, GetMouseWorldPos(mouseState)); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -414,13 +414,13 @@ namespace MageFollower.Client
                     MouseScale = 1.0f;
                 }
 
-                if (Vector2.Zero != vectorToMove)
-                {
-                    targetPos = null;
+                //if (Vector2.Zero != vectorToMove)
+                //{
+                //    targetPos = null;
 
-                    Player.Position += ((vectorToMove * Player.Speed) *
-                        (float)gameTime.ElapsedGameTime.TotalSeconds);
-                }
+                //    Player.Position += ((vectorToMove * Player.Speed) *
+                //        (float)gameTime.ElapsedGameTime.TotalSeconds);
+                //}
 
                 if (targetPos != null)
                 {
