@@ -474,8 +474,8 @@ namespace MageFollower.Client
             {
                 WorldZoom += (mouseState.ScrollWheelValue - prevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-                if (WorldZoom > 3)
-                    WorldZoom = 3;
+                if (WorldZoom > 2)
+                    WorldZoom = 2;
                 if (WorldZoom < 0.5f)
                     WorldZoom = 0.5f;
 
