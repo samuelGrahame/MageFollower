@@ -152,6 +152,7 @@ namespace MageFollower
             var PassCodeToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var worldEnviorment = new Enviroment();
+            var idToEntity = new Dictionary<string, Entity>();
 
             var listOfEnemies = new List<Entity>();
 
@@ -173,6 +174,8 @@ namespace MageFollower
             };
             enemy.Melee.AddXp(10000.0f);
             listOfEnemies.Add(enemy);
+
+            idToEntity.Add(enemy.Id, enemy);
 
             //var fireMelee = new Entity() { 
             //    ElementType = ElementType.Fire,
@@ -246,8 +249,64 @@ namespace MageFollower
                 });
                 saveGameWorld.Start();
 
+                var playersDispatchThread = new Thread(() =>
+                {
+                    var r = new Random();
+                    var st = Stopwatch.StartNew();
+                    while (true)
+                    {
+                        Thread.Sleep(1000 / 30);
+                        foreach (var item in listOfEntities)
+                        {
+                            if (item.AttackSleep > 0)
+                            {
+                                item.AttackSleep -= st.ElapsedMilliseconds;
+                                if (item.AttackSleep < 0)
+                                    item.AttackSleep = 0;
+                            }
+                            if (item.TargetEntity == null)
+                                continue;
+                            
+                            if (!item.TargetEntity.IsAlive || !item.IsAlive)
+                            {
+                                item.TargetEntity = null;                                
+                            }
+                            else
+                            {
+                                if (VectorHelper.AreInRange(75.0f, item.Position, item.TargetEntity.Position))
+                                {
+                                    //targetPos = null;
+                                    if (item.AttackSleep == 0)
+                                    {
+                                        var startingHealth = item.TargetEntity.Health;
+                                        item.AttackTarget(item.TargetEntity, r.NextDouble());
+                                        var newHealth = item.TargetEntity.Health;
+                                        item.AttackSleep = 1000; // 3 second cool down for aa
+                                        dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
+                                    }
+                                }
+                                else
+                                {
+                                    // PROCESSED ON CLIENT SO FAR - need to workout how to create smooth lerp. / PROB if we used a fixed game loop.
+                                    //Vector2 dir = item.TargetEntity.Position - item.Position;
 
-                var processAI = new Thread(() =>
+                                    //Vector2 dPos = item.Position - item.TargetEntity.Position;
+
+                                    //dir.Normalize();
+                                    //item.Position += dir * item.Speed * (float)st.ElapsedMilliseconds / 1000.0f;
+                                    //item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+
+                                    //dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
+                                }
+                            }
+                        }
+
+                        st.Restart();
+                    }
+                });
+                playersDispatchThread.Start();
+
+                var processAIThread = new Thread(() =>
                 {
                     var r = new Random();
 
@@ -324,7 +383,7 @@ namespace MageFollower
                         st.Restart();
                     }                    
                 });
-                processAI.Start();
+                processAIThread.Start();
 
                 var sendUpdatesToClients = new Thread(() =>
                 {
@@ -434,6 +493,7 @@ namespace MageFollower
                                         SocketToEntity.Add(socketToUse, newEntity);
                                         PassCodeToSocket.Add(newPass, (socketToUse, newEntity));
                                         IdToSocket.Add(newEntity.Id, (socketToUse, newEntity));
+                                        idToEntity.Add(newEntity.Id, newEntity);
 
                                         socketToUse.Send(msg);
                                         dataToSend.Enqueue(("NEW:" + JsonConvert.SerializeObject(newEntity) + "<EOF>", null));
@@ -473,6 +533,29 @@ namespace MageFollower
                                         entitiy.Rotation = transform.Rotation;
 
                                         dataToSend.Enqueue(($"POS:{entitiy.Id}:{JsonConvert.SerializeObject(transform)}<EOF>", socketToUse));
+                                    }else if(item.StartsWith("TARGET:"))
+                                    {
+                                        var newTarget = item.Substring("TARGET:".Length, item.Length - "TARGET:".Length);
+                                        var entitiy = SocketToEntity[socketToUse];
+
+                                        if (string.CompareOrdinal(newTarget, "NULL") != 0 && idToEntity.ContainsKey(newTarget))
+                                        {
+                                            var targetEntity = idToEntity[newTarget];
+                                            
+                                            if (targetEntity != null && targetEntity != entitiy && targetEntity.IsAlive && entitiy.IsAlive)
+                                            {
+                                                entitiy.TargetEntity = targetEntity;
+                                            }
+                                            else
+                                            {
+                                                entitiy.TargetEntity = null;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            entitiy.TargetEntity = null;
+                                        }
+
                                     }
                                     else if (item.StartsWith("SPAWN:"))
                                     {
@@ -507,6 +590,7 @@ namespace MageFollower
                                 var entityToRemove = SocketToEntity[socketToUse];
 
                                 IdToSocket.Remove(entityToRemove.Id);
+                                idToEntity.Remove(entityToRemove.Id);
                                 SocketToEntity.Remove(socketToUse);
 
                                 listOfSockets.Remove(socketToUse);
