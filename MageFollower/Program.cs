@@ -106,6 +106,13 @@ namespace MageFollower
             //Console.Read();
         }
 
+        public class DamageToTarget
+        {            
+            [JsonProperty("h")]
+            public double HealthToSet;
+            [JsonProperty("d")]
+            public double DamageDone;
+        }
         public class Transform
         {
             [JsonProperty("p")]    
@@ -155,8 +162,28 @@ namespace MageFollower
                 Color = Color.Red,
                 Id = "-1",
                 Name = "Bot Red",
-                Speed = 250
+                Speed = 250,
+                ElementType = ElementType.Fire,
+                RightHand = new World.Items.Item()
+                {
+                    Equipt = World.Items.EquiptType.Physical,
+                    Power = 1.1f,
+                    Type = World.Items.ItemType.Stick
+                }
             });
+
+            //var fireMelee = new Entity() { 
+            //    ElementType = ElementType.Fire,
+            //    Health = 100,
+            //    Name = "The Fire Swordsman"
+            //};
+            //fireMelee.Melee.AddXp(10000.0f);            
+            //fireMelee.RightHand = new World.Items.Item()
+            //{
+            //    Equipt = World.Items.EquiptType.Physical,
+            //    Power = 1.1f,
+            //    Type = World.Items.ItemType.Stick
+            //};
 
             // load worlds;
 
@@ -220,12 +247,21 @@ namespace MageFollower
 
                 var processAI = new Thread(() =>
                 {
+                    var r = new Random();
+
                     var st = Stopwatch.StartNew();
                     while(true)
                     {
                         Thread.Sleep(1000 / 30);
                         foreach (var item in listOfEnemies)
                         {
+                            if(item.AttackSleep > 0)
+                            {
+                                item.AttackSleep -= st.ElapsedMilliseconds;
+                                if (item.AttackSleep < 0)
+                                    item.AttackSleep = 0;
+                            }
+
                             if (item.TargetEntity == null || !item.TargetEntity.IsAlive)
                             {
                                 item.TargetEntity = null;
@@ -259,6 +295,14 @@ namespace MageFollower
                                 if (VectorHelper.AreInRange(75.0f, item.Position, item.TargetEntity.Position))
                                 {
                                     //targetPos = null;
+                                    if(item.AttackSleep == 0)
+                                    {
+                                        var startingHealth = item.TargetEntity.Health;
+                                        item.AttackTarget(item.TargetEntity, r.NextDouble());
+                                        var newHealth = item.TargetEntity.Health;
+                                        item.AttackSleep = 3000; // 3 second cool down for aa
+                                        dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
+                                    }
                                 }
                                 else
                                 {

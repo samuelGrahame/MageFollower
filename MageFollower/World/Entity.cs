@@ -13,6 +13,9 @@ namespace MageFollower.World
     {
         [JsonIgnore]
         public Entity TargetEntity;
+        [JsonIgnore]
+        public long AttackSleep;
+
         [JsonProperty("i0")]
         public string Id;
         [JsonProperty("i1")]

@@ -294,7 +294,21 @@ namespace MageFollower.Client
                                             entity.LerpToTarger = true;
                                         }
                                     }
-                                }else if(item.StartsWith("SPAWN:"))
+                                }
+                                else if (item.StartsWith("DMG:"))
+                                {
+                                    var IdAndTransform = item.Substring("DMG:".Length, item.Length - "DMG:".Length);
+                                    var placeOfSemi = IdAndTransform.IndexOf(":");
+                                    var id = IdAndTransform.Substring(0, placeOfSemi);
+
+                                    var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                    if (EntitiesById.ContainsKey(id))
+                                    {
+                                        var entity = EntitiesById[id];
+                                        entity.Health = transform.HealthToSet;
+                                    }
+                                }
+                                else if(item.StartsWith("SPAWN:"))
                                 {
                                     var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
                                     try
