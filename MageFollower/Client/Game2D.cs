@@ -550,12 +550,18 @@ namespace MageFollower.Client
 
                 if (_targetPos == null)
                 {
-                    var ms = mouseState.Position;
-                    Matrix inverseTransform = Matrix.Invert(_transform);
+                    if(_targetEntity == null)
+                    {                        
+                        Vector2 dPos = _player.Position - GetMouseWorldPos(mouseState);
 
-                    Vector2 dPos = _player.Position - Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
-
-                    _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                    }
+                    else
+                    {
+                        Vector2 dPos = _player.Position - _targetEntity.Position;
+                        _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                    }
+                    
                 }
 
                 _lastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -795,7 +801,7 @@ namespace MageFollower.Client
 
             // Draw UI
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
-            _spriteBatch.DrawString(_font, $"Creator Mode: {(_isCreatorModeOn ? "True" : "False")}", new Vector2(10, -24),
+            _spriteBatch.DrawString(_font, $"Creator Mode: {(_isCreatorModeOn ? "True" : "False")}", new Vector2(10, 10),
                     Color.White, 0.0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0);
             _spriteBatch.End();
 
