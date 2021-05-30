@@ -531,7 +531,7 @@ namespace MageFollower.Client
                         Entity.Origin,
                         1.0f,
                         SpriteEffects.None,
-                        0.9f);
+                        1.0f);
 
                 _spriteBatch.Draw(person01,
                          item.Position,
@@ -541,7 +541,7 @@ namespace MageFollower.Client
                          Entity.Origin,
                          1.0f,
                          SpriteEffects.None,
-                         1.0f);
+                         0.9f);
 
                 Vector2 size = font.MeasureString(item.Name);                
                 Vector2 origin = size * 0.5f;
@@ -553,12 +553,12 @@ namespace MageFollower.Client
                 var heathPos = item.Position - new Vector2(50, 80);
 
                 _spriteBatch.Draw(healthBarBase,
-                    heathPos, null, Color.Black, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
+                    heathPos, null, Color.Black, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.1f);
 
                 _spriteBatch.Draw(healthBarBase,
                     heathPos, 
                     new Rectangle(0, 0, (int)(100.0f * (item.Health / item.MaxHealth)), 10), 
-                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.1f);
+                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
 
                 //_spriteBatch.Draw(healthBarBase,
                 //    item.Position, null, Color.Black, 0.0f, Vector2.Zero, SpriteEffects.None, 0.0f);
