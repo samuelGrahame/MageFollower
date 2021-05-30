@@ -210,136 +210,145 @@ namespace MageFollower.Client
 
                     var thrd = new Thread(() =>
                     {
-                        // Incoming data from the client.
-                        string leftOver = "";
-                        while (true)
+                        try
                         {
-                            string data = leftOver;
-                            byte[] bytes = null;
-
+                            // Incoming data from the client.
+                            string leftOver = "";
                             while (true)
                             {
-                                bytes = new byte[1024];
-                                int bytesRec = sender.Receive(bytes);
-                                data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                                if (data.IndexOf("<EOF>") > -1)
+                                string data = leftOver;
+                                byte[] bytes = null;
+
+                                while (true)
                                 {
-                                    break;
-                                }
-                            }
-
-                            var packets = data.Split("<EOF>");
-                            int length = packets.Length;
-
-                            if (!data.EndsWith("<EOF>"))
-                            {
-                                leftOver = packets[length - 1];
-                                length--;
-                            }
-                            else
-                            {
-                                leftOver = "";
-                            }
-                            for (int index = 0; index < length; index++)
-                            {
-                                var item = packets[index];
-
-                                if (item.StartsWith("PASS:"))
-                                {
-                                    // after i connect
-                                    var PassAndId = item.Substring("PASS:".Length, item.Length - "PASS:".Length);
-
-                                    var arrary = PassAndId.Split(":");
-
-                                    passCode = arrary[0];
-                                    playerId = arrary[1];
-
-
-                                    if (EntitiesById.ContainsKey(playerId))
+                                    bytes = new byte[1024];
+                                    int bytesRec = sender.Receive(bytes);
+                                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                                    if (data.IndexOf("<EOF>") > -1)
                                     {
-                                        Player = EntitiesById[playerId];
+                                        break;
                                     }
                                 }
-                                else if (item.StartsWith("NEW:"))
+
+                                var packets = data.Split("<EOF>");
+                                int length = packets.Length;
+
+                                if (!data.EndsWith("<EOF>"))
                                 {
-                                    var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
-                                    var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, config);
-
-                                    if (string.CompareOrdinal(newEntity.Id, playerId) == 0)
-                                    {
-                                        Player = newEntity;
-                                    }
-
-                                    if (!EntitiesById.ContainsKey(newEntity.Id))
-                                    {
-                                        EntitiesById[newEntity.Id] = newEntity;
-                                        Entities.Add(newEntity);
-                                    }
+                                    leftOver = packets[length - 1];
+                                    length--;
                                 }
-                                else if (item.StartsWith("POS:"))
+                                else
                                 {
-                                    var IdAndTransform = item.Substring("POS:".Length, item.Length - "POS:".Length);
-                                    var placeOfSemi = IdAndTransform.IndexOf(":");
-                                    var id = IdAndTransform.Substring(0, placeOfSemi);
+                                    leftOver = "";
+                                }
+                                for (int index = 0; index < length; index++)
+                                {
+                                    var item = packets[index];
 
-                                    if (string.CompareOrdinal(id, playerId) != 0)
+                                    if (item.StartsWith("PASS:"))
                                     {
-                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                        // after i connect
+                                        var PassAndId = item.Substring("PASS:".Length, item.Length - "PASS:".Length);
+
+                                        var arrary = PassAndId.Split(":");
+
+                                        passCode = arrary[0];
+                                        playerId = arrary[1];
+
+
+                                        if (EntitiesById.ContainsKey(playerId))
+                                        {
+                                            Player = EntitiesById[playerId];
+                                        }
+                                    }
+                                    else if (item.StartsWith("NEW:"))
+                                    {
+                                        var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
+                                        var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, config);
+
+                                        if (string.CompareOrdinal(newEntity.Id, playerId) == 0)
+                                        {
+                                            Player = newEntity;
+                                        }
+
+                                        if (!EntitiesById.ContainsKey(newEntity.Id))
+                                        {
+                                            EntitiesById[newEntity.Id] = newEntity;
+                                            Entities.Add(newEntity);
+                                        }
+                                    }
+                                    else if (item.StartsWith("POS:"))
+                                    {
+                                        var IdAndTransform = item.Substring("POS:".Length, item.Length - "POS:".Length);
+                                        var placeOfSemi = IdAndTransform.IndexOf(":");
+                                        var id = IdAndTransform.Substring(0, placeOfSemi);
+
+                                        if (string.CompareOrdinal(id, playerId) != 0)
+                                        {
+                                            var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                            if (EntitiesById.ContainsKey(id))
+                                            {
+                                                var entity = EntitiesById[id];
+                                                entity.TargetPos = transform.Position;
+                                                entity.TargetRotation = transform.Rotation;
+                                                entity.TotalTimeLerp = 0;
+                                                entity.LerpToTarger = true;
+                                            }
+                                        }
+                                    }
+                                    else if (item.StartsWith("DMG:"))
+                                    {
+                                        var IdAndTransform = item.Substring("DMG:".Length, item.Length - "DMG:".Length);
+                                        var placeOfSemi = IdAndTransform.IndexOf(":");
+                                        var id = IdAndTransform.Substring(0, placeOfSemi);
+
+                                        var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
                                         if (EntitiesById.ContainsKey(id))
                                         {
                                             var entity = EntitiesById[id];
-                                            entity.TargetPos = transform.Position;
-                                            entity.TargetRotation = transform.Rotation;
-                                            entity.TotalTimeLerp = 0;
-                                            entity.LerpToTarger = true;
+                                            entity.Health = transform.HealthToSet;
                                         }
                                     }
-                                }
-                                else if (item.StartsWith("DMG:"))
-                                {
-                                    var IdAndTransform = item.Substring("DMG:".Length, item.Length - "DMG:".Length);
-                                    var placeOfSemi = IdAndTransform.IndexOf(":");
-                                    var id = IdAndTransform.Substring(0, placeOfSemi);
+                                    else if (item.StartsWith("SPAWN:"))
+                                    {
+                                        var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
+                                        try
+                                        {
+                                            var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, config);//ListOfTrees
+                                            worldEnviroment.EnviromentItems.Add(enviromentItem);
+                                        }
+                                        catch (Exception)
+                                        {
 
-                                    var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
-                                    if (EntitiesById.ContainsKey(id))
+                                        }
+                                        //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
+                                    }
+                                    else if (item.StartsWith("DEL:"))
                                     {
-                                        var entity = EntitiesById[id];
-                                        entity.Health = transform.HealthToSet;
+                                        var idToRemove = item.Substring("DEL:".Length, item.Length - "DEL:".Length);
+                                        if (string.CompareOrdinal(idToRemove, playerId) == 0)
+                                        {
+                                            Player = null;
+                                        }
+
+                                        if (!EntitiesById.ContainsKey(idToRemove))
+                                        {
+                                            var enttiy = EntitiesById[idToRemove];
+                                            Entities.Remove(enttiy);
+                                            EntitiesById.Remove(idToRemove);
+                                        }
+                                        //DEL: { entityToRemove.Id}< EOF >
                                     }
                                 }
-                                else if(item.StartsWith("SPAWN:"))
-                                {
-                                    var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
-                                    try
-                                    {
-                                        var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, config);//ListOfTrees
-                                        worldEnviroment.EnviromentItems.Add(enviromentItem);                                        
-                                    }
-                                    catch (Exception)
-                                    {
-
-                                    }
-                                    //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
-                                }else if(item.StartsWith("DEL:"))
-                                {
-                                    var idToRemove = item.Substring("DEL:".Length, item.Length - "DEL:".Length);
-                                    if (string.CompareOrdinal(idToRemove, playerId) == 0)
-                                    {
-                                        Player = null;
-                                    }
-
-                                    if (!EntitiesById.ContainsKey(idToRemove))
-                                    {
-                                        var enttiy = EntitiesById[idToRemove];
-                                        Entities.Remove(enttiy);
-                                        EntitiesById.Remove(idToRemove);
-                                    }
-                                    //DEL: { entityToRemove.Id}< EOF >
-                                }
-                            }                            
-                           // Console.WriteLine("Text received : {0}", data);
+                                // Console.WriteLine("Text received : {0}", data);
+                            }
                         }
+                        catch (Exception)
+                        {
+
+                        }
+                        
                         
                     });
                     thrd.Start();
