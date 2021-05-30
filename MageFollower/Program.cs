@@ -106,6 +106,14 @@ namespace MageFollower
             //Console.Read();
         }
 
+        // TODO Move to Networking
+        public class XpToTarget
+        {
+            [JsonProperty("x")]
+            public float Xp;
+            [JsonProperty("l")]
+            public string Level;
+        }
         public class DamageToTarget
         {            
             [JsonProperty("h")]
@@ -158,8 +166,8 @@ namespace MageFollower
 
             var enemy = new Entity()
             {
-                MaxHealth = 100,
-                Health = 100,
+                MaxHealth = 20,
+                Health = 20,
                 Color = Color.Red,
                 Id = "-1",
                 Name = "Bot Red",
@@ -172,7 +180,7 @@ namespace MageFollower
                     Type = World.Items.ItemType.Stick
                 }
             };
-            enemy.Melee.AddXp(10000.0f);
+            //enemy.Melee.AddXp(10000.0f);
             listOfEnemies.Add(enemy);
 
             idToEntity.Add(enemy.Id, enemy);
@@ -282,6 +290,13 @@ namespace MageFollower
                                         item.AttackTarget(item.TargetEntity, r.NextDouble());
                                         var newHealth = item.TargetEntity.Health;
                                         item.AttackSleep = 1000; // 3 second cool down for aa
+
+                                        if (!item.TargetEntity.IsAlive)
+                                        {
+                                            item.Melee.AddXp(100);
+                                            dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Melee), Xp = 100 })}<EOF>", null));
+                                        }
+
                                         dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
                                     }
                                 }
@@ -309,13 +324,20 @@ namespace MageFollower
                 var processAIThread = new Thread(() =>
                 {
                     var r = new Random();
-
+                    var listToDelete = new List<Entity>();
                     var st = Stopwatch.StartNew();
                     while(true)
                     {
                         Thread.Sleep(1000 / 30);
+                        
                         foreach (var item in listOfEnemies)
                         {
+                            if(!item.IsAlive)
+                            {
+                                listToDelete.Add(item);
+                                continue;
+                            }
+
                             if(item.AttackSleep > 0)
                             {
                                 item.AttackSleep -= st.ElapsedMilliseconds;
@@ -378,6 +400,17 @@ namespace MageFollower
                                     dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position } )}<EOF>", null));
                                 }
                             }
+                        }
+
+                        if(listToDelete.Count > 0)
+                        {
+                            foreach (var item in listToDelete)
+                            {
+                                dataToSend.Enqueue(($"DEL:{item.Id}<EOF>", null));
+                                listOfEnemies.Remove(item);
+                            } // maybe spawn random new one?
+
+                            listToDelete.Clear();
                         }
 
                         st.Restart();
@@ -476,13 +509,20 @@ namespace MageFollower
                                     {
                                         var newEntity = new Entity()
                                         {
-                                            Health = 100,
-                                            MaxHealth = 100,
+                                            Health = 1000,
+                                            MaxHealth = 1000,
                                             Name = "Human " + i.ToString(),
-                                            Speed = 400
-                                        };
-
-                                        newEntity.Id = i.ToString();
+                                            Speed = 350,
+                                            ElementType = ElementType.Water,
+                                            Color = Color.Blue,
+                                            RightHand = new World.Items.Item()
+                                            {
+                                                Equipt = World.Items.EquiptType.Physical,
+                                                Power = 1.1f,
+                                                Type = World.Items.ItemType.Stick
+                                            },
+                                            Id = i.ToString()
+                                        };                                        
 
                                         var newPass = CreatePassword(10);
 

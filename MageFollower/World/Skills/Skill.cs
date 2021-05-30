@@ -38,14 +38,17 @@ namespace MageFollower.World.Skills
             AddXp(xp);
         }
 
-        public void AddXp(double xp)
+        public int AddXp(double xp)
         {
+            int innerLevel = 0;
             Xp += xp;
             while(Xp > XpToLevel)
             {
                 Level++;
+                innerLevel++;
                 XpToLevel += XpPerLevel;
             }
+            return innerLevel;
         }
     }
 }

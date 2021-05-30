@@ -330,6 +330,30 @@ namespace MageFollower.Client
                                                 StartingTime = 3000.0f
                                             });
                                         }
+                                    }else if (item.StartsWith("ADDXP:"))
+                                    {
+                                        var IdAndTransform = item.Substring("ADDXP:".Length, item.Length - "ADDXP:".Length);
+                                        var placeOfSemi = IdAndTransform.IndexOf(":");
+                                        var id = IdAndTransform.Substring(0, placeOfSemi);
+
+                                        var xpToTarget = JsonConvert.DeserializeObject<XpToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                        if (_entitiesById.ContainsKey(id))
+                                        {
+                                            var entity = _entitiesById[id];
+
+                                            if(entity.AddXpToSkill(xpToTarget))
+                                            {
+                                                var size = _font.MeasureString("Leveled Up!") * 0.5f;
+                                                _floatingTextList.Add(new FloatingDamageText()
+                                                {
+                                                    Text = "Leveled Up!",
+                                                    Color = Color.Blue,
+                                                    TotalTimeToRemove = 2000.0f,
+                                                    StartingTime = 2000.0f,
+                                                    Position = entity.Position - new Vector2(size.X, 150.0f)
+                                                }) ;
+                                            }                                            
+                                        }
                                     }
                                     else if (item.StartsWith("SPAWN:"))
                                     {
@@ -353,7 +377,7 @@ namespace MageFollower.Client
                                             _player = null;
                                         }
 
-                                        if (!_entitiesById.ContainsKey(idToRemove))
+                                        if (_entitiesById.ContainsKey(idToRemove))
                                         {
                                             var enttiy = _entitiesById[idToRemove];
                                             _entities.Remove(enttiy);
@@ -776,7 +800,7 @@ namespace MageFollower.Client
             foreach (var item in _floatingTextList)
             {
                 _spriteBatch.DrawString(_font, item.Text, item.Position,
-                    item.Color, 0.0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0);
+                    item.Color, 0.0f, Vector2.Zero, 1.6f, SpriteEffects.None, 0);
             }
 
             if (_targetPos != null)

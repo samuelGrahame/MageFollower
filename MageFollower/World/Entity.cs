@@ -5,7 +5,9 @@ using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
+using static MageFollower.Program;
 
 namespace MageFollower.World
 {
@@ -181,7 +183,37 @@ namespace MageFollower.World
         [JsonProperty("i33")]
         public Item Feet;
         [JsonProperty("i34")]
-        public Item Back;  
+        public Item Back;
+        private static Dictionary<string, FieldInfo> skillFields = null;
+        public bool AddXpToSkill(XpToTarget xpToTarget)
+        {
+            if(skillFields == null)
+            {
+                _setupSkillFieldsCache();
+            }
+
+            if(skillFields.ContainsKey(xpToTarget.Level))
+            {
+                return ((Skill)skillFields[xpToTarget.Level].GetValue(this)).AddXp(xpToTarget.Xp) > 0;
+            }
+            return false;
+        }
+
+        private static void _setupSkillFieldsCache()
+        {
+            skillFields = new Dictionary<string, FieldInfo>();
+            var list = new List<FieldInfo>();//
+            list.AddRange(typeof(Entity).GetFields());
+            list.RemoveAll(o => o.FieldType != typeof(Skill));
+            foreach (var item in list)
+            {
+                if(item == typeof(Skill))
+                {
+                    skillFields.Add(item.Name, item);
+                }
+            }
+
+        }
 
         public bool OnHit(Entity fromTarget, double damage)
         {
