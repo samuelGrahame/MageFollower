@@ -18,13 +18,14 @@ namespace MageFollower.Client
     public class Game2D : Game
     {
         private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
-        private Texture2D texture;
+        private SpriteBatch _spriteBatch;        
         private Texture2D person01;
         private Texture2D moveToX;
         private Texture2D healthBarBase;
 
         private SpriteFont font;
+
+        private Dictionary<EnviromentType, Texture2D> enviromentTextures = new Dictionary<EnviromentType, Texture2D>();
 
         private float NintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float WorldRotation = 0.0f;
@@ -37,7 +38,7 @@ namespace MageFollower.Client
         private Dictionary<string, Entity> EntitiesById = new Dictionary<string, Entity>();
 
 
-        private List<Vector2> ListOfTrees = new List<Vector2>();
+        private World.Enviroment worldEnviroment = new();
 
         private Vector2? targetPos = null;
 
@@ -123,7 +124,9 @@ namespace MageFollower.Client
             IsMouseVisible = true;
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            texture = Content.Load<Texture2D>("Trees/Tree01");
+
+            enviromentTextures.Add(EnviromentType.Tree01, Content.Load<Texture2D>("Trees/Tree01"));
+            
             person01 = Content.Load<Texture2D>("People/Person01_Idle");
             moveToX = Content.Load<Texture2D>("Other/MoveToX");
 
@@ -262,7 +265,7 @@ namespace MageFollower.Client
                                 else if (item.StartsWith("NEW:"))
                                 {
                                     var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
-                                    var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer);
+                                    var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, config);
 
                                     if (string.CompareOrdinal(newEntity.Id, playerId) == 0)
                                     {
@@ -283,7 +286,7 @@ namespace MageFollower.Client
 
                                     if (string.CompareOrdinal(id, playerId) != 0)
                                     {
-                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1));
+                                        var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), config);
                                         if (EntitiesById.ContainsKey(id))
                                         {
                                             var entity = EntitiesById[id];
@@ -296,28 +299,15 @@ namespace MageFollower.Client
                                 }else if(item.StartsWith("SPAWN:"))
                                 {
                                     var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
-
-                                    var indexOfSem = itemToSpawn.IndexOf(":");
-                                    if(indexOfSem > -1)
+                                    try
                                     {
-                                        string itemType = itemToSpawn.Substring(0, indexOfSem);
-                                        string posToSpawn = itemToSpawn.Substring(indexOfSem + 1);
-
-                                        if (String.CompareOrdinal(itemType, "TREE") == 0)
-                                        {
-                                            try
-                                            {
-                                                var vectorToPlace = JsonConvert.DeserializeObject<Vector2>(posToSpawn);//ListOfTrees
-                                                ListOfTrees.Add(vectorToPlace);                                                
-                                            }
-                                            catch (Exception)
-                                            {
-
-                                            }
-                                        }
+                                        var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, config);//ListOfTrees
+                                        worldEnviroment.EnviromentItems.Add(enviromentItem);                                        
                                     }
+                                    catch (Exception)
+                                    {
 
-                                    
+                                    }
                                     //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
                                 }else if(item.StartsWith("DEL:"))
                                 {
@@ -371,26 +361,17 @@ namespace MageFollower.Client
 
         private KeyboardState prevKeyboardState;
 
-        private void SpawnItemAtPos(string type, Vector2 pos)
+        private JsonSerializerSettings config = new JsonSerializerSettings { 
+            DefaultValueHandling = DefaultValueHandling.Ignore            
+        };
+
+        private void SpawnItemAtPos(EnviromentType type, Vector2 pos)
         {
-            if(type == "TREE")
+            if(type == EnviromentType.Tree01)
             {
                 pos -= new Vector2(-35, 150);
             }
-            dataToSend.Enqueue($"SPAWN:{type}:{JsonConvert.SerializeObject(pos)}<EOF>");
-            if (type == "TREE")
-            {
-                ListOfTrees.Add(pos);
-            }
-        }
-
-        private void SpawnItemAtMe(string type)
-        {            
-            dataToSend.Enqueue($"SPAWN:{type}:ME<EOF>");
-            if(type == "TREE")
-            {
-                ListOfTrees.Add(Player.Position - new Vector2(-35, 150));
-            }
+            dataToSend.Enqueue($"SPAWN:{JsonConvert.SerializeObject(new EnviromentItem() { Position = pos, ItemType = type }, config)}<EOF>");            
         }
 
         private Vector2 GetMouseWorldPos(MouseState mouseState)
@@ -399,7 +380,7 @@ namespace MageFollower.Client
             Matrix inverseTransform = Matrix.Invert(_transform);
             return  Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
         }
-
+        private EnviromentType itemTpAddOnRightClick = EnviromentType.Tree01;
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -424,7 +405,7 @@ namespace MageFollower.Client
                     vectorToMove.X += 1;
 
                 if (mouseState.RightButton == ButtonState.Pressed && prevMouseState.RightButton == ButtonState.Released)
-                        SpawnItemAtPos("TREE", GetMouseWorldPos(mouseState)); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                        SpawnItemAtPos(itemTpAddOnRightClick, GetMouseWorldPos(mouseState)); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
 
                 if (mouseState.LeftButton == ButtonState.Pressed)
                 {                    
@@ -481,7 +462,7 @@ namespace MageFollower.Client
                     (prevPos != Player.Position || prevRotation != Player.Rotation))
                 {
                     LastTimeSentToServer = 0;
-                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation })}<EOF>");
+                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation }, config)}<EOF>");
 
                     prevPos = Player.Position;
                     prevRotation = Player.Rotation;
@@ -590,10 +571,20 @@ namespace MageFollower.Client
                 //    null, item == Player ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, SpriteEffects.None, 0);
             }
 
-            foreach (var item in ListOfTrees)
+            Texture2D texture = null;
+            EnviromentType enviromentType = EnviromentType.None;
+
+            foreach (var item in worldEnviroment.EnviromentItems)
             {
+                if(item.ItemType != enviromentType)
+                {
+                    texture = enviromentTextures[item.ItemType];
+                    enviromentType = item.ItemType;
+                }
+                
+
                 _spriteBatch.Draw(texture,
-                item - new Vector2(15, 15),
+                 item.Position - new Vector2(15, 15),
                  null,
                  new Color(Color.Black, 0.2f),
                  1.0f,
@@ -603,7 +594,7 @@ namespace MageFollower.Client
                  0.2f);
 
                 _spriteBatch.Draw(texture,
-                             item,
+                             item.Position,
                              null,
                              Color.White,
                              1.0f,

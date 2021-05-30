@@ -143,16 +143,17 @@ namespace MageFollower
             var SocketToEntity = new Dictionary<Socket, Entity>();
             var PassCodeToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
-            var ListOfTrees = new List<Vector2>();
+            var worldEnviorment = new Enviroment();
 
             // load worlds;
 
             try
             {
-                var treesJson = JsonConvert.DeserializeObject<List<Vector2>>(System.IO.File.ReadAllText("Trees.Json"));
-                if(treesJson != null)
+                // TODO Load all chunks
+                var world = JsonConvert.DeserializeObject<Enviroment>(System.IO.File.ReadAllText("World.Json"));
+                if(world != null)
                 {
-                    ListOfTrees = treesJson;
+                    worldEnviorment = world;
                 }
             }
             catch (Exception)
@@ -182,9 +183,17 @@ namespace MageFollower
 
                         try
                         {
-                            Console.WriteLine("Saving game world");
+                            if(worldEnviorment.IsDirty)
+                            {
+                                Console.WriteLine("Saving game world");
 
-                            System.IO.File.WriteAllText("Trees.Json", JsonConvert.SerializeObject(ListOfTrees));                            
+                                System.IO.File.WriteAllText("World.Json", JsonConvert.SerializeObject(worldEnviorment));
+                            }
+                            else
+                            {
+                                Console.WriteLine("Was going to save but world has not changed.");
+                            }
+                            
                         }
                         catch (Exception)
                         {
@@ -316,11 +325,14 @@ namespace MageFollower
                                                 socketToUse.Send(msg);
                                             }
                                         }
-                                        foreach (var tree in ListOfTrees)
+                                        if(worldEnviorment.EnviromentItems != null)
                                         {
-                                            msg = Encoding.ASCII.GetBytes($"SPAWN:TREE:{JsonConvert.SerializeObject(tree)}<EOF>");
-                                            socketToUse.Send(msg);
-                                        }
+                                            foreach (var itemToSpawn in worldEnviorment.EnviromentItems)
+                                            {
+                                                msg = Encoding.ASCII.GetBytes($"SPAWN:{JsonConvert.SerializeObject(itemToSpawn)}<EOF>");
+                                                socketToUse.Send(msg);
+                                            }
+                                        }                                        
                                     }
                                     else if (item.StartsWith("POS:"))
                                     {
@@ -337,31 +349,17 @@ namespace MageFollower
                                     {
                                         var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
 
-                                        var indexOfSem = itemToSpawn.IndexOf(":");
-                                        if(indexOfSem > -1)
+                                        try
                                         {
-                                            string itemType = itemToSpawn.Substring(0, indexOfSem);
-                                            string posToSpawn = itemToSpawn.Substring(indexOfSem + 1);
-
-                                            if (String.CompareOrdinal(itemType, "TREE") == 0)
-                                            {                                                
-                                                try
-                                                {
-                                                    var vectorToPlace = posToSpawn == "ME" ? SocketToEntity[socketToUse].Position : JsonConvert.DeserializeObject<Vector2>(posToSpawn);//ListOfTrees
-                                                    vectorToPlace -= new Vector2(-35, 150);
-
-                                                    ListOfTrees.Add(vectorToPlace);
-                                                    dataToSend.Enqueue(($"SPAWN:TREE:{JsonConvert.SerializeObject(vectorToPlace)}<EOF>", socketToUse));
-                                                }
-                                                catch (Exception)
-                                                {
-
-                                                }
-                                            }
+                                            var enviormentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn);
+                                            enviormentItem = worldEnviorment.AddItem(enviormentItem.ItemType, enviormentItem.Position);
+                                            
+                                            dataToSend.Enqueue(($"SPAWN:{JsonConvert.SerializeObject(enviormentItem)}<EOF>", null));
                                         }
+                                        catch (Exception)
+                                        {
 
-                                        
-                                        //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
+                                        }
                                     }
                                 }
 
