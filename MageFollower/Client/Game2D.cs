@@ -326,8 +326,8 @@ namespace MageFollower.Client
                                                 Text = dmgDone,
                                                 Position = entity.Position - new Vector2(size.X, 150.0f),
                                                 Color = Color.White,
-                                                TotalTimeToRemove = 3000.0f,
-                                                StartingTime = 3000.0f
+                                                TotalTimeToRemove = 2000.0f,
+                                                StartingTime = 2000.0f
                                             });
                                         }
                                     }else if (item.StartsWith("ADDXP:"))
@@ -343,14 +343,27 @@ namespace MageFollower.Client
 
                                             if(entity.AddXpToSkill(xpToTarget))
                                             {
-                                                var size = _font.MeasureString("Leveled Up!") * 0.5f;
+                                                var caption = $"{xpToTarget.Level}: {xpToTarget.Xp} xp";
+                                                var size = _font.MeasureString(caption) * 0.5f;
+
+                                                _floatingTextList.Add(new FloatingDamageText()
+                                                {
+                                                    Text = caption,
+                                                    Position = entity.Position - new Vector2(size.X, 150.0f),
+                                                    Color = Color.CornflowerBlue,
+                                                    TotalTimeToRemove = 2000.0f,
+                                                    StartingTime = 2000.0f
+                                                });
+
+
+                                                size = _font.MeasureString("Leveled Up!") * 0.5f;
                                                 _floatingTextList.Add(new FloatingDamageText()
                                                 {
                                                     Text = "Leveled Up!",
                                                     Color = Color.Blue,
                                                     TotalTimeToRemove = 2000.0f,
                                                     StartingTime = 2000.0f,
-                                                    Position = entity.Position - new Vector2(size.X, 150.0f)
+                                                    Position = entity.Position - new Vector2(size.X, 170.0f)
                                                 }) ;
                                             }                                            
                                         }
