@@ -302,7 +302,7 @@ namespace MageFollower
                                         var startingHealth = item.TargetEntity.Health;
                                         item.AttackTarget(item.TargetEntity, r.NextDouble());
                                         var newHealth = item.TargetEntity.Health;
-                                        item.AttackSleep = 3000; // 3 second cool down for aa
+                                        item.AttackSleep = 1000; // 3 second cool down for aa
                                         dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
                                     }
                                 }

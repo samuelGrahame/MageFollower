@@ -535,7 +535,9 @@ namespace MageFollower.Client
             foreach (var item in Entities)
             {
                 var rotation = item.Rotation - NintyRadius;
-                _spriteBatch.Draw(person01,
+                if(item.IsAlive)
+                {
+                    _spriteBatch.Draw(person01,
                         item.Position - new Vector2(15, 15),
                         null,
                         new Color(Color.Black, 0.2f),
@@ -544,16 +546,30 @@ namespace MageFollower.Client
                         1.0f,
                         SpriteEffects.None,
                         1.0f);
+                    _spriteBatch.Draw(person01,
+                             item.Position,
+                             null,
+                             item.Color,
+                             rotation,
+                             Entity.Origin,
+                             1.0f,
+                             SpriteEffects.None,
+                             0.9f);
 
-                _spriteBatch.Draw(person01,
-                         item.Position,
-                         null,
-                         item.Color,
-                         rotation,
-                         Entity.Origin,
-                         1.0f,
-                         SpriteEffects.None,
-                         0.9f);
+                }
+                else
+                {
+                    _spriteBatch.Draw(person01,
+                             item.Position,
+                             null,
+                             new Color(Color.DeepSkyBlue, 0.5f),
+                             rotation,
+                             Entity.Origin,
+                             1.0f,
+                             SpriteEffects.None,
+                             0.9f);
+                }
+                
 
                 Vector2 size = font.MeasureString(item.Name);                
                 Vector2 origin = size * 0.5f;
