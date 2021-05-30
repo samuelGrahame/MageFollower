@@ -1,4 +1,5 @@
-﻿using MageFollower.Utilities;
+﻿using MageFollower.Particle;
+using MageFollower.Utilities;
 using MageFollower.World;
 using MageFollower.World.Element;
 using Microsoft.Xna.Framework;
@@ -20,30 +21,29 @@ namespace MageFollower.Client
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;        
-        private Texture2D person01;
-        private Texture2D moveToX;
-        private Texture2D healthBarBase;
-
-        private SpriteFont font;
-
+        private Texture2D _person01;
+        private Texture2D _personGhost01;
+        private Texture2D _moveToX;
+        private Texture2D _healthBarBase;
+        private SpriteFont _font;
         private Dictionary<EnviromentType, Texture2D> enviromentTextures = new Dictionary<EnviromentType, Texture2D>();
-
-        private float NintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
-        private float WorldRotation = 0.0f;
-        private float WorldZoom = 0.5f;
-
-        private float MouseScale = 0.0f;
-
-        private Entity Player;
-        private List<Entity> Entities;
-        private Dictionary<string, Entity> EntitiesById = new Dictionary<string, Entity>();
-
-
-        private World.Enviroment worldEnviroment = new();
-
-        private Vector2? targetPos = null;
-
+        private float _nintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
+        private float _worldRotation = 0.0f;
+        private float _worldZoom = 0.5f;
+        private float _mousePressScale = 0.0f;
+        private Entity _player;
+        private List<Entity> _entities;
+        private Dictionary<string, Entity> _entitiesById = new Dictionary<string, Entity>();
+        private World.Enviroment _worldEnviroment = new();
+        private Vector2? _targetPos = null;
         private Matrix _transform;
+
+        private MouseState _prevMouseState;
+
+        private Socket _sender;
+        private string _passCode;
+        private string _playerId;
+        private double _lastTimeSentToServer = 0;
 
         public Game2D()
         {
@@ -59,7 +59,7 @@ namespace MageFollower.Client
             
         }
 
-        private double LastTimeSentToServer = 0;
+        
 
         protected override void Initialize()
         {
@@ -70,7 +70,7 @@ namespace MageFollower.Client
 
             //_graphics.ApplyChanges();
 
-            Entities = new List<Entity>();
+            _entities = new List<Entity>();
             
             StartClient();
 
@@ -117,8 +117,8 @@ namespace MageFollower.Client
             base.UnloadContent();
 
             // Release the socket.    
-            sender.Shutdown(SocketShutdown.Both);
-            sender.Close();
+            _sender.Shutdown(SocketShutdown.Both);
+            _sender.Close();
         }
         protected override void LoadContent()
         {
@@ -130,24 +130,25 @@ namespace MageFollower.Client
                 EnviromentType.Tree01, 
                 Content.Load<Texture2D>("Trees/Tree01"));
             
-            person01 = Content.Load<Texture2D>("People/Person01_Idle");
-            moveToX = Content.Load<Texture2D>("Other/MoveToX");
+            _person01 = Content.Load<Texture2D>("People/Person01_Idle");
+            _personGhost01 = Content.Load<Texture2D>("People/Person01_Ghost_Idle");
+            _moveToX = Content.Load<Texture2D>("Other/MoveToX");
 
-            font = Content.Load<SpriteFont>("Fonts/SegoeUI");
+            _font = Content.Load<SpriteFont>("Fonts/SegoeUI");
 
-            healthBarBase = Content.Load<Texture2D>("Other/HealthBarBase");            
+            _healthBarBase = Content.Load<Texture2D>("Other/HealthBarBase");
             // TODO: use this.Content to load your game content here
         }
 
 
         public Matrix get_transformation(GraphicsDevice graphicsDevice)
         {
-            var playerPos = Player == null ? Vector2.Zero : Player.Position;
+            var playerPos = _player == null ? Vector2.Zero : _player.Position;
 
             _transform =       // Thanks to o KB o for this solution
               Matrix.CreateTranslation(new Vector3(-playerPos.X, -playerPos.Y, 0)) *
-                                         Matrix.CreateRotationZ(WorldRotation) *
-                                         Matrix.CreateScale(new Vector3(WorldZoom, WorldZoom, 1)) *
+                                         Matrix.CreateRotationZ(_worldRotation) *
+                                         Matrix.CreateScale(new Vector3(_worldZoom, _worldZoom, 1)) *
                                          Matrix.CreateTranslation(new Vector3(graphicsDevice.Viewport.Width * 0.5f,
                                          graphicsDevice.Viewport.Height * 0.5f, 0));
             return _transform;
@@ -155,11 +156,6 @@ namespace MageFollower.Client
 
         
 
-        private MouseState prevMouseState;
-
-        private Socket sender;
-        private string passCode;
-        private string playerId;
 
         public void StartClient()
         {
@@ -176,22 +172,22 @@ namespace MageFollower.Client
                 IPEndPoint remoteEP = new IPEndPoint(ipAddress, 11000);
 
                 // Create a TCP/IP  socket.    
-                sender = new Socket(ipAddress.AddressFamily,
+                _sender = new Socket(ipAddress.AddressFamily,
                     SocketType.Stream, ProtocolType.Tcp);
 
                 // Connect the socket to the remote endpoint. Catch any errors.    
                 try
                 {
                     // Connect to Remote EndPoint  
-                    sender.Connect(remoteEP);
+                    _sender.Connect(remoteEP);
 
                     Console.WriteLine("Socket connected to {0}",
-                        sender.RemoteEndPoint.ToString());
+                        _sender.RemoteEndPoint.ToString());
                     // TODO ALLOW TO LOAD FROM PASS CODE
                     // Encode the data string into a byte array.    
                     byte[] msg = Encoding.ASCII.GetBytes("NEW:<EOF>");
                     // Send the data through the socket.    
-                    int bytesSent = sender.Send(msg);
+                    int bytesSent = _sender.Send(msg);
 
                     var sendDataToServer = new Thread(() =>
                     {
@@ -201,7 +197,7 @@ namespace MageFollower.Client
                             {
                                 var dataPack = dataToSend.Dequeue();
                                 byte[] msg = Encoding.ASCII.GetBytes(dataPack);
-                                sender.Send(msg);
+                                _sender.Send(msg);
                             }
                             Thread.Sleep(1);
                         }
@@ -222,7 +218,7 @@ namespace MageFollower.Client
                                 while (true)
                                 {
                                     bytes = new byte[1024];
-                                    int bytesRec = sender.Receive(bytes);
+                                    int bytesRec = _sender.Receive(bytes);
                                     data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
                                     if (data.IndexOf("<EOF>") > -1)
                                     {
@@ -253,13 +249,13 @@ namespace MageFollower.Client
 
                                         var arrary = PassAndId.Split(":");
 
-                                        passCode = arrary[0];
-                                        playerId = arrary[1];
+                                        _passCode = arrary[0];
+                                        _playerId = arrary[1];
 
 
-                                        if (EntitiesById.ContainsKey(playerId))
+                                        if (_entitiesById.ContainsKey(_playerId))
                                         {
-                                            Player = EntitiesById[playerId];
+                                            _player = _entitiesById[_playerId];
                                         }
                                     }
                                     else if (item.StartsWith("NEW:"))
@@ -267,15 +263,15 @@ namespace MageFollower.Client
                                         var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
                                         var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, config);
 
-                                        if (string.CompareOrdinal(newEntity.Id, playerId) == 0)
+                                        if (string.CompareOrdinal(newEntity.Id, _playerId) == 0)
                                         {
-                                            Player = newEntity;
+                                            _player = newEntity;
                                         }
 
-                                        if (!EntitiesById.ContainsKey(newEntity.Id))
+                                        if (!_entitiesById.ContainsKey(newEntity.Id))
                                         {
-                                            EntitiesById[newEntity.Id] = newEntity;
-                                            Entities.Add(newEntity);
+                                            _entitiesById[newEntity.Id] = newEntity;
+                                            _entities.Add(newEntity);
                                         }
                                     }
                                     else if (item.StartsWith("POS:"))
@@ -284,12 +280,12 @@ namespace MageFollower.Client
                                         var placeOfSemi = IdAndTransform.IndexOf(":");
                                         var id = IdAndTransform.Substring(0, placeOfSemi);
 
-                                        if (string.CompareOrdinal(id, playerId) != 0)
+                                        if (string.CompareOrdinal(id, _playerId) != 0)
                                         {
                                             var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), config);
-                                            if (EntitiesById.ContainsKey(id))
+                                            if (_entitiesById.ContainsKey(id))
                                             {
-                                                var entity = EntitiesById[id];
+                                                var entity = _entitiesById[id];
                                                 entity.TargetPos = transform.Position;
                                                 entity.TargetRotation = transform.Rotation;
                                                 entity.TotalTimeLerp = 0;
@@ -304,10 +300,22 @@ namespace MageFollower.Client
                                         var id = IdAndTransform.Substring(0, placeOfSemi);
 
                                         var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
-                                        if (EntitiesById.ContainsKey(id))
+                                        if (_entitiesById.ContainsKey(id))
                                         {
-                                            var entity = EntitiesById[id];
+                                            var entity = _entitiesById[id];
                                             entity.Health = transform.HealthToSet;
+
+                                            var dmgDone = Math.Round(transform.DamageDone, 2).ToString();
+                                            var size = _font.MeasureString(dmgDone) * 0.5f;
+
+                                            floatingTextList.Add(new FloatingDamageText()
+                                            {
+                                                Text = dmgDone,
+                                                Position = entity.Position - new Vector2(size.X, 150.0f),
+                                                Color = Color.White,
+                                                TotalTimeToRemove = 3000.0f,
+                                                StartingTime = 3000.0f
+                                            });
                                         }
                                     }
                                     else if (item.StartsWith("SPAWN:"))
@@ -316,7 +324,7 @@ namespace MageFollower.Client
                                         try
                                         {
                                             var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, config);//ListOfTrees
-                                            worldEnviroment.EnviromentItems.Add(enviromentItem);
+                                            _worldEnviroment.EnviromentItems.Add(enviromentItem);
                                         }
                                         catch (Exception)
                                         {
@@ -327,16 +335,16 @@ namespace MageFollower.Client
                                     else if (item.StartsWith("DEL:"))
                                     {
                                         var idToRemove = item.Substring("DEL:".Length, item.Length - "DEL:".Length);
-                                        if (string.CompareOrdinal(idToRemove, playerId) == 0)
+                                        if (string.CompareOrdinal(idToRemove, _playerId) == 0)
                                         {
-                                            Player = null;
+                                            _player = null;
                                         }
 
-                                        if (!EntitiesById.ContainsKey(idToRemove))
+                                        if (!_entitiesById.ContainsKey(idToRemove))
                                         {
-                                            var enttiy = EntitiesById[idToRemove];
-                                            Entities.Remove(enttiy);
-                                            EntitiesById.Remove(idToRemove);
+                                            var enttiy = _entitiesById[idToRemove];
+                                            _entities.Remove(enttiy);
+                                            _entitiesById.Remove(idToRemove);
                                         }
                                         //DEL: { entityToRemove.Id}< EOF >
                                     }
@@ -375,6 +383,7 @@ namespace MageFollower.Client
         }
 
         private Queue<string> dataToSend = new Queue<string>();
+        private List<FloatingDamageText> floatingTextList = new List<FloatingDamageText>();
 
         private double MoveTimer = (1000 / 30.0f);
         private Vector2 prevPos;
@@ -412,7 +421,7 @@ namespace MageFollower.Client
             var keyboardState = Keyboard.GetState();           
             var mouseState = Mouse.GetState();
             // test
-            if (Player != null)
+            if (_player != null)
             {                
                 //Vector2 vectorToMove = Vector2.Zero;
 
@@ -425,14 +434,14 @@ namespace MageFollower.Client
                 //if (keyboardState.IsKeyDown(Keys.D))
                 //    vectorToMove.X += 1;
 
-                if (mouseState.RightButton == ButtonState.Pressed && prevMouseState.RightButton == ButtonState.Released)
+                if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released)
                         SpawnItemAtPos(itemTpAddOnRightClick, GetMouseWorldPos(mouseState)); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
 
                 if (mouseState.LeftButton == ButtonState.Pressed)
                 {                    
-                    targetPos = GetMouseWorldPos(mouseState);
+                    _targetPos = GetMouseWorldPos(mouseState);
 
-                    MouseScale = 1.0f;
+                    _mousePressScale = 1.0f;
                 }
 
                 //if (Vector2.Zero != vectorToMove)
@@ -443,68 +452,68 @@ namespace MageFollower.Client
                 //        (float)gameTime.ElapsedGameTime.TotalSeconds);
                 //}
 
-                if (targetPos != null)
+                if (_targetPos != null)
                 {
-                    if (MouseScale > 0.7f)
+                    if (_mousePressScale > 0.7f)
                     {
-                        MouseScale -= 2f *
+                        _mousePressScale -= 2f *
                             (float)gameTime.ElapsedGameTime.TotalSeconds;
                     }
 
-                    if (VectorHelper.AreInRange(3.0f, Player.Position, targetPos.Value))
+                    if (VectorHelper.AreInRange(10.0f, _player.Position, _targetPos.Value))
                     {
-                        targetPos = null;
+                        _targetPos = null;
                     }
                     else
                     {
-                        Vector2 dir = targetPos.Value - Player.Position;
+                        Vector2 dir = _targetPos.Value - _player.Position;
 
-                        Vector2 dPos = Player.Position - targetPos.Value;
+                        Vector2 dPos = _player.Position - _targetPos.Value;
 
                         dir.Normalize();
-                        Player.Position += dir * Player.Speed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-                        Player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        _player.Position += dir * _player.Speed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+                        _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
                     }
                 }
 
-                if (targetPos == null)
+                if (_targetPos == null)
                 {
                     var ms = mouseState.Position;
                     Matrix inverseTransform = Matrix.Invert(_transform);
 
-                    Vector2 dPos = Player.Position - Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+                    Vector2 dPos = _player.Position - Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
 
-                    Player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                    _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
                 }
 
-                LastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
+                _lastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                if (LastTimeSentToServer > MoveTimer && 
-                    (prevPos != Player.Position || prevRotation != Player.Rotation))
+                if (_lastTimeSentToServer > MoveTimer && 
+                    (prevPos != _player.Position || prevRotation != _player.Rotation))
                 {
-                    LastTimeSentToServer = 0;
-                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = Player.Position, Rotation = Player.Rotation }, config)}<EOF>");
+                    _lastTimeSentToServer = 0;
+                    dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = _player.Position, Rotation = _player.Rotation }, config)}<EOF>");
 
-                    prevPos = Player.Position;
-                    prevRotation = Player.Rotation;
+                    prevPos = _player.Position;
+                    prevRotation = _player.Rotation;
                 }                
                 //PacketsToSend
             }
 
-            if (prevMouseState.ScrollWheelValue != mouseState.ScrollWheelValue)
+            if (_prevMouseState.ScrollWheelValue != mouseState.ScrollWheelValue)
             {
-                WorldZoom += (mouseState.ScrollWheelValue - prevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+                _worldZoom += (mouseState.ScrollWheelValue - _prevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-                if (WorldZoom > 2)
-                    WorldZoom = 2;
-                if (WorldZoom < 0.5f)
-                    WorldZoom = 0.5f;
+                if (_worldZoom > 2)
+                    _worldZoom = 2;
+                if (_worldZoom < 0.5f)
+                    _worldZoom = 0.5f;
 
             }
 
-            foreach (var item in Entities)
+            foreach (var item in _entities)
             {
-                if(item != Player && item.LerpToTarger)
+                if(item != _player && item.LerpToTarger)
                 {
                     item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;                    
                     var percent = (float)(item.TotalTimeLerp / MoveTimer);
@@ -523,30 +532,56 @@ namespace MageFollower.Client
                         item.Rotation = item.TargetRotation;//; MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
                 }
             }
-            
-            prevMouseState = mouseState;
+
+            for (int i = floatingTextList.Count - 1; i >= 0; i--)
+            {
+                var item = floatingTextList[i];
+                item.TotalTimeToRemove -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                if (item.TotalTimeToRemove <= 0f)
+                {
+                    floatingTextList.RemoveAt(i);
+                }
+                else
+                {
+                    item.Color.A = (byte)(255.0f * (item.TotalTimeToRemove / item.StartingTime));
+                    item.Position -= new Vector2(0, 
+                        25 * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                }
+            }
+
+            _prevMouseState = mouseState;
             prevKeyboardState = keyboardState;
 
             base.Update(gameTime);
         }
-
+        private Texture2D BloomGhost = null;
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.DarkGreen);
 
+            //if(BloomGhost == null)
+            //{
+            //    BloomGhost = _bloomFilter.Draw(_personGhost01,
+            //        256,
+            //        256);
+
+            //    GraphicsDevice.SetRenderTarget(null);
+            //}
+            //SpriteSortMode.Deferred, BlendState.Additive
+
             // TODO: Add your drawing code here
-            _spriteBatch.Begin(SpriteSortMode.BackToFront, 
+            _spriteBatch.Begin(SpriteSortMode.Deferred, 
                 BlendState.AlphaBlend, 
                 SamplerState.AnisotropicClamp, 
                 null, null, null, get_transformation(GraphicsDevice));
 
             // _spriteBatch.Draw(person01, playerPos, Color.White);
-            foreach (var item in Entities)
+            foreach (var item in _entities)
             {
-                var rotation = item.Rotation - NintyRadius;
+                var rotation = item.Rotation - _nintyRadius;
                 if(item.IsAlive)
                 {
-                    _spriteBatch.Draw(person01,
+                    _spriteBatch.Draw(_person01,
                         item.Position - new Vector2(15, 15),
                         null,
                         new Color(Color.Black, 0.2f),
@@ -555,7 +590,7 @@ namespace MageFollower.Client
                         1.0f,
                         SpriteEffects.None,
                         1.0f);
-                    _spriteBatch.Draw(person01,
+                    _spriteBatch.Draw(_person01,
                              item.Position,
                              null,
                              item.Color,
@@ -568,10 +603,10 @@ namespace MageFollower.Client
                 }
                 else
                 {
-                    _spriteBatch.Draw(person01,
+                    _spriteBatch.Draw(_personGhost01,
                              item.Position,
                              null,
-                             new Color(Color.DeepSkyBlue, 0.5f),
+                             new Color(new Color(177, 221, 241), 0.3f),
                              rotation,
                              Entity.Origin,
                              1.0f,
@@ -580,22 +615,22 @@ namespace MageFollower.Client
                 }
                 
 
-                Vector2 size = font.MeasureString(item.Name);                
+                Vector2 size = _font.MeasureString(item.Name);                
                 Vector2 origin = size * 0.5f;
 
-                _spriteBatch.DrawString(font, item.Name, item.Position -
-                    new Vector2(128 - origin.X - 25, (100)),
-                    Color.White, 0.0f, origin, 1.0f, SpriteEffects.None, 0);
+                _spriteBatch.DrawString(_font, item.Name, item.Position -
+                    new Vector2(origin.X, (120)),
+                    Color.White, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0);
 
                 var heathPos = item.Position - new Vector2(50, 80);
 
-                _spriteBatch.Draw(healthBarBase,
+                _spriteBatch.Draw(_healthBarBase,
                     heathPos, null, Color.Black, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.1f);
 
-                _spriteBatch.Draw(healthBarBase,
+                _spriteBatch.Draw(_healthBarBase,
                     heathPos, 
                     new Rectangle(0, 0, (int)(100.0f * (item.Health / item.MaxHealth)), 10), 
-                    item == Player && Player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
+                    item == _player && _player != null ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0.0f);
 
                 //_spriteBatch.Draw(healthBarBase,
                 //    item.Position, null, Color.Black, 0.0f, Vector2.Zero, SpriteEffects.None, 0.0f);
@@ -611,7 +646,7 @@ namespace MageFollower.Client
             Texture2D texture = null;
             EnviromentType enviromentType = EnviromentType.None;
 
-            foreach (var item in worldEnviroment.EnviromentItems)
+            foreach (var item in _worldEnviroment.EnviromentItems)
             {
                 if(item.ItemType != enviromentType)
                 {
@@ -641,19 +676,24 @@ namespace MageFollower.Client
                              0.1f);
             }
 
-            
 
-            if (targetPos != null)
+            foreach (var item in floatingTextList)
             {
-                if (MouseScale > 0.7f)
+                _spriteBatch.DrawString(_font, item.Text, item.Position,
+                    item.Color, 0.0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0);
+            }
+
+            if (_targetPos != null)
+            {
+                if (_mousePressScale > 0.7f)
                 {
-                    _spriteBatch.Draw(moveToX,
-                         targetPos.Value,
+                    _spriteBatch.Draw(_moveToX,
+                         _targetPos.Value,
                          null,
                          Color.White,
                          0.0f,
                          new Vector2(16, 16),
-                         MouseScale,
+                         _mousePressScale,
                          SpriteEffects.None,
                          0f);
                 }
