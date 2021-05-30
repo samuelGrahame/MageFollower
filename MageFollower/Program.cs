@@ -155,7 +155,7 @@ namespace MageFollower
 
             var listOfEnemies = new List<Entity>();
 
-            listOfEnemies.Add(new Entity()
+            var enemy = new Entity()
             {
                 MaxHealth = 100,
                 Health = 100,
@@ -170,7 +170,9 @@ namespace MageFollower
                     Power = 1.1f,
                     Type = World.Items.ItemType.Stick
                 }
-            });
+            };
+            enemy.Melee.AddXp(10000.0f);
+            listOfEnemies.Add(enemy);
 
             //var fireMelee = new Entity() { 
             //    ElementType = ElementType.Fire,
