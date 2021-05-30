@@ -1,4 +1,5 @@
 ﻿using MageFollower.Client;
+using MageFollower.Utilities;
 using MageFollower.World;
 using MageFollower.World.Element;
 using MageFollower.World.Skills;
@@ -145,6 +146,18 @@ namespace MageFollower
             var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var worldEnviorment = new Enviroment();
 
+            var listOfEnemies = new List<Entity>();
+
+            listOfEnemies.Add(new Entity()
+            {
+                MaxHealth = 100,
+                Health = 100,
+                Color = Color.Red,
+                Id = "-1",
+                Name = "Bot Red",
+                Speed = 250
+            });
+
             // load worlds;
 
             try
@@ -203,6 +216,69 @@ namespace MageFollower
                     }
                 });
                 saveGameWorld.Start();
+
+
+                var processAI = new Thread(() =>
+                {
+                    var st = Stopwatch.StartNew();
+                    while(true)
+                    {
+                        Thread.Sleep(1000 / 30);
+                        foreach (var item in listOfEnemies)
+                        {
+                            if (item.TargetEntity == null || !item.TargetEntity.IsAlive)
+                            {
+                                item.TargetEntity = null;
+                                float LowersDistance = int.MaxValue;
+                                Entity entity = null;
+
+                                foreach (var player in listOfEntities)
+                                {
+                                    if(player.IsAlive)
+                                    {
+                                        var distance = Vector2.Distance(player.Position, item.Position);
+                                        if (distance < LowersDistance)
+                                        {
+                                            entity = player;
+                                            break;
+                                        }
+                                    }                                    
+                                }
+
+                                if(entity == null)
+                                {
+                                    // idle walk maybe
+                                }
+                                else
+                                {
+                                    item.TargetEntity = entity;
+                                }
+                            }
+                            else
+                            {
+                                if (VectorHelper.AreInRange(75.0f, item.Position, item.TargetEntity.Position))
+                                {
+                                    //targetPos = null;
+                                }
+                                else
+                                {
+                                    Vector2 dir = item.TargetEntity.Position - item.Position;
+
+                                    Vector2 dPos = item.Position - item.TargetEntity.Position;
+
+                                    dir.Normalize();
+                                    item.Position += dir * item.Speed * (float)st.ElapsedMilliseconds / 1000.0f;
+                                    item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                                    
+                                    dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position } )}<EOF>", null));
+                                }
+                            }
+                        }
+
+                        st.Restart();
+                    }                    
+                });
+                processAI.Start();
 
                 var sendUpdatesToClients = new Thread(() =>
                 {
@@ -325,6 +401,13 @@ namespace MageFollower
                                                 socketToUse.Send(msg);
                                             }
                                         }
+
+                                        foreach (var enemies in listOfEnemies)
+                                        {
+                                            msg = Encoding.ASCII.GetBytes("NEW:" + JsonConvert.SerializeObject(enemies) + "<EOF>");
+                                            socketToUse.Send(msg);
+                                        }
+
                                         if(worldEnviorment.EnviromentItems != null)
                                         {
                                             foreach (var itemToSpawn in worldEnviorment.EnviromentItems)

@@ -11,6 +11,8 @@ namespace MageFollower.World
 {
     public class Entity
     {
+        [JsonIgnore]
+        public Entity TargetEntity;
         [JsonProperty("i0")]
         public string Id;
         [JsonProperty("i1")]

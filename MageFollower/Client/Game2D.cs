@@ -1,4 +1,5 @@
-﻿using MageFollower.World;
+﻿using MageFollower.Utilities;
+using MageFollower.World;
 using MageFollower.World.Element;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -125,7 +126,9 @@ namespace MageFollower.Client
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
 
-            enviromentTextures.Add(EnviromentType.Tree01, Content.Load<Texture2D>("Trees/Tree01"));
+            enviromentTextures.Add(
+                EnviromentType.Tree01, 
+                Content.Load<Texture2D>("Trees/Tree01"));
             
             person01 = Content.Load<Texture2D>("People/Person01_Idle");
             moveToX = Content.Load<Texture2D>("Other/MoveToX");
@@ -150,12 +153,7 @@ namespace MageFollower.Client
             return _transform;
         }
 
-        bool AreInRange(float range, Vector2 v1, Vector2 v2)
-        {
-            var dx = v1.X - v2.X;
-            var dy = v1.Y - v2.Y;
-            return dx * dx + dy * dy < range * range;
-        }
+        
 
         private MouseState prevMouseState;
 
@@ -430,7 +428,7 @@ namespace MageFollower.Client
                             (float)gameTime.ElapsedGameTime.TotalSeconds;
                     }
 
-                    if (AreInRange(3.0f, Player.Position, targetPos.Value))
+                    if (VectorHelper.AreInRange(3.0f, Player.Position, targetPos.Value))
                     {
                         targetPos = null;
                     }
