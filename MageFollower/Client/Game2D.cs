@@ -390,7 +390,7 @@ namespace MageFollower.Client
 
             var keyboardState = Keyboard.GetState();           
             var mouseState = Mouse.GetState();
-
+            // test
             if (Player != null)
             {                
                 Vector2 vectorToMove = Vector2.Zero;
