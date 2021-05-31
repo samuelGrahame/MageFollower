@@ -62,6 +62,8 @@ namespace MageFollower.Client
         private bool _isCreatorModeOn = false;
         private InputHandler _input = new InputHandler();
 
+        public SpriteFont DefaultFont => _font;
+
         public Game2D()
         {
             _graphics = new GraphicsDeviceManager(this);

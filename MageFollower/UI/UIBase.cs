@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace MageFollower.UI
 {
-    public class UIBase
+    public abstract class UIBase
     {
         public Game2D GameClient; // TODO Make Interface.
 
