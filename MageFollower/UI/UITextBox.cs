@@ -73,7 +73,7 @@ namespace MageFollower.UI
 
         private bool insertOrAddChar(Keys key, bool capsLock)
         {
-            
+            // TODO make a helper Func keys to valid char.
             if ((key >= Keys.A && key <= Keys.Z) || (key >= Keys.NumPad0 && key <= Keys.NumPad9) || key == Keys.Space)
             {                
                 char charToAdd;
