@@ -30,7 +30,7 @@ namespace MageFollower.Client
         private Dictionary<EnviromentType, Texture2D> enviromentTextures = new Dictionary<EnviromentType, Texture2D>();
         private float _nintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float _worldRotation = 0.0f;
-        private float _worldZoom = 0.5f;
+        private float _worldZoom = 1f;
         private float _mousePressScale = 0.0f;
         private Entity _player;
         private List<Entity> _entities;
