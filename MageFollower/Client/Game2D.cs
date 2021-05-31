@@ -1,4 +1,5 @@
 ﻿using MageFollower.Particle;
+using MageFollower.UI;
 using MageFollower.Utilities;
 using MageFollower.World;
 using MageFollower.World.Element;
@@ -40,7 +41,10 @@ namespace MageFollower.Client
         private Entity _targetEntity = null;
         private Matrix _transform;
 
-        private MouseState _prevMouseState;
+        private JsonSerializerSettings _config = new JsonSerializerSettings
+        {
+            DefaultValueHandling = DefaultValueHandling.Ignore
+        };
 
         private Socket _sender;
         private string _passCode;
@@ -56,6 +60,7 @@ namespace MageFollower.Client
         private float _prevRotation;
         private EnviromentType _itemTpAddOnRightClick = EnviromentType.Tree01;
         private bool _isCreatorModeOn = false;
+        private InputHandler _input = new InputHandler();
 
         public Game2D()
         {
@@ -274,7 +279,7 @@ namespace MageFollower.Client
                                     else if (item.StartsWith("NEW:"))
                                     {
                                         var newPlayer = item.Substring("NEW:".Length, item.Length - "NEW:".Length);
-                                        var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, config);
+                                        var newEntity = JsonConvert.DeserializeObject<Entity>(newPlayer, _config);
 
                                         if (string.CompareOrdinal(newEntity.Id, _playerId) == 0)
                                         {
@@ -295,7 +300,7 @@ namespace MageFollower.Client
 
                                         if (string.CompareOrdinal(id, _playerId) != 0)
                                         {
-                                            var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                            var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), _config);
                                             if (_entitiesById.ContainsKey(id))
                                             {
                                                 var entity = _entitiesById[id];
@@ -312,7 +317,7 @@ namespace MageFollower.Client
                                         var placeOfSemi = IdAndTransform.IndexOf(":");
                                         var id = IdAndTransform.Substring(0, placeOfSemi);
 
-                                        var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                        var transform = JsonConvert.DeserializeObject<DamageToTarget>(IdAndTransform.Substring(placeOfSemi + 1), _config);
                                         if (_entitiesById.ContainsKey(id))
                                         {
                                             var entity = _entitiesById[id];
@@ -336,7 +341,7 @@ namespace MageFollower.Client
                                         var placeOfSemi = IdAndTransform.IndexOf(":");
                                         var id = IdAndTransform.Substring(0, placeOfSemi);
 
-                                        var xpToTarget = JsonConvert.DeserializeObject<XpToTarget>(IdAndTransform.Substring(placeOfSemi + 1), config);
+                                        var xpToTarget = JsonConvert.DeserializeObject<XpToTarget>(IdAndTransform.Substring(placeOfSemi + 1), _config);
                                         if (_entitiesById.ContainsKey(id))
                                         {
                                             var entity = _entitiesById[id];
@@ -373,7 +378,7 @@ namespace MageFollower.Client
                                         var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
                                         try
                                         {
-                                            var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, config);//ListOfTrees
+                                            var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, _config);//ListOfTrees
                                             _worldEnviroment.EnviromentItems.Add(enviromentItem);
                                         }
                                         catch (Exception)
@@ -432,13 +437,7 @@ namespace MageFollower.Client
             }
         }
 
-        
 
-        private KeyboardState prevKeyboardState;
-
-        private JsonSerializerSettings config = new JsonSerializerSettings { 
-            DefaultValueHandling = DefaultValueHandling.Ignore            
-        };
         private void SetTargetOnServer(Entity entity)
         {
             if (entity == _player)
@@ -463,7 +462,7 @@ namespace MageFollower.Client
             {
                 pos -= new Vector2(-35, 150);
             }
-            _dataToSend.Enqueue($"SPAWN:{JsonConvert.SerializeObject(new EnviromentItem() { Position = pos, ItemType = type }, config)}<EOF>");            
+            _dataToSend.Enqueue($"SPAWN:{JsonConvert.SerializeObject(new EnviromentItem() { Position = pos, ItemType = type }, _config)}<EOF>");            
         }
 
         private Vector2 GetMouseWorldPos(MouseState mouseState)
@@ -479,9 +478,9 @@ namespace MageFollower.Client
                 Exit();
 
             // TODO: Add your update logic here
+            _input.MouseState = Mouse.GetState();
+            _input.KeyboardState = Keyboard.GetState();
 
-            var keyboardState = Keyboard.GetState();           
-            var mouseState = Mouse.GetState();
             // test
             if (_player != null)
             {                
@@ -496,9 +495,9 @@ namespace MageFollower.Client
                 //if (keyboardState.IsKeyDown(Keys.D))
                 //    vectorToMove.X += 1;
 
-                if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released)
+                if (_input.MouseState.RightButton == ButtonState.Pressed && _input.PrevMouseState.RightButton == ButtonState.Released)
                 {
-                    var worldMousePos = GetMouseWorldPos(mouseState);
+                    var worldMousePos = GetMouseWorldPos(_input.MouseState);
                     // TODO CHECK UI First.
 
                     if (_isCreatorModeOn)
@@ -518,14 +517,14 @@ namespace MageFollower.Client
                     }
                 }
 
-                if(prevKeyboardState.IsKeyUp(Keys.G) && keyboardState.IsKeyDown(Keys.G))
+                if(_input.PrevKeyboardState.IsKeyUp(Keys.G) && _input.KeyboardState.IsKeyDown(Keys.G))
                 {
                     _isCreatorModeOn = !_isCreatorModeOn;
                 }
                         
-                if (mouseState.LeftButton == ButtonState.Pressed)
+                if (_input.MouseState.LeftButton == ButtonState.Pressed)
                 {                    
-                    _targetPos = GetMouseWorldPos(mouseState);
+                    _targetPos = GetMouseWorldPos(_input.MouseState);
                     if(_targetEntity != null)
                     {
                         SetTargetOnServer(null);
@@ -589,7 +588,7 @@ namespace MageFollower.Client
                 {
                     if(_targetEntity == null)
                     {                        
-                        Vector2 dPos = _player.Position - GetMouseWorldPos(mouseState);
+                        Vector2 dPos = _player.Position - GetMouseWorldPos(_input.MouseState);
 
                         _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
                     }
@@ -607,7 +606,7 @@ namespace MageFollower.Client
                     (_prevPos != _player.Position || _prevRotation != _player.Rotation))
                 {
                     _lastTimeSentToServer = 0;
-                    _dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = _player.Position, Rotation = _player.Rotation }, config)}<EOF>");
+                    _dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = _player.Position, Rotation = _player.Rotation }, _config)}<EOF>");
 
                     _prevPos = _player.Position;
                     _prevRotation = _player.Rotation;
@@ -615,9 +614,9 @@ namespace MageFollower.Client
                 //PacketsToSend
             }
 
-            if (_prevMouseState.ScrollWheelValue != mouseState.ScrollWheelValue)
+            if (_input.PrevMouseState.ScrollWheelValue != _input.MouseState.ScrollWheelValue)
             {
-                _worldZoom += (mouseState.ScrollWheelValue - _prevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+                _worldZoom += (_input.MouseState.ScrollWheelValue - _input.PrevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
                 if (_worldZoom > 2)
                     _worldZoom = 2;
@@ -664,8 +663,8 @@ namespace MageFollower.Client
                 }
             }
 
-            _prevMouseState = mouseState;
-            prevKeyboardState = keyboardState;
+            _input.PrevMouseState = _input.MouseState;
+            _input.PrevKeyboardState = _input.KeyboardState;
 
             base.Update(gameTime);
         }
