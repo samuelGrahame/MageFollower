@@ -14,5 +14,25 @@ namespace MageFollower.UI
 
         public KeyboardState KeyboardState;
         public KeyboardState PrevKeyboardState;
+
+        /// <summary>
+        /// Check when key is down
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool IsKeyPressed(Keys key)
+        {
+            return KeyboardState.IsKeyDown(key) && PrevKeyboardState.IsKeyUp(key);
+        }
+
+        /// <summary>
+        /// Check after key is pressed.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool WasKeyPressed(Keys key)
+        {
+            return KeyboardState.IsKeyUp(key) && PrevKeyboardState.IsKeyDown(key);
+        }
     }
 }

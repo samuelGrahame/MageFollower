@@ -15,13 +15,21 @@ namespace MageFollower.UI
         private List<char> _innerList = new();
         public int CursorPos;
         private string _text;
-        public Vector2 Posision;
+        public Vector2 Position;
         public Color Color;
 
         public string Text
         {
             get { return _text; }
-            set { _text = value; }
+            set {
+
+                _text = value;
+                _innerList.Clear();
+                if(_text != null)
+                {
+                    _innerList.AddRange(_text);                    
+                }
+            }
         }
         private void _buildTextFromInnerList()
         {
@@ -40,7 +48,8 @@ namespace MageFollower.UI
 
         public override void Draw(SpriteBatch spriteBatch)
         {
-            spriteBatch.DrawString(GameClient.DefaultFont, Text, Posision, Color);
+            if(!string.IsNullOrWhiteSpace(Text))
+                spriteBatch.DrawString(GameClient.DefaultFont, Text, Position, Color);
         }
 
         public override void Update(InputHandler inputHandler)

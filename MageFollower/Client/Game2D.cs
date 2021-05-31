@@ -62,6 +62,10 @@ namespace MageFollower.Client
         private bool _isCreatorModeOn = false;
         private InputHandler _input = new InputHandler();
 
+        public UIBase FocusedControl = null;
+
+        private UITextBox _commandTextBoxUI;
+
         public SpriteFont DefaultFont => _font;
 
         public Game2D()
@@ -92,7 +96,12 @@ namespace MageFollower.Client
             _entities = new List<Entity>();
             
             StartClient();
-
+            _commandTextBoxUI = new UITextBox(this)
+            {
+                Color = Color.White,
+                CursorPos = 0,
+                Position = new Vector2(25, 25)
+            };
             //var fireMelee = new Entity()
             //{
             //    ElementType = ElementType.Fire,
@@ -497,6 +506,29 @@ namespace MageFollower.Client
                 //if (keyboardState.IsKeyDown(Keys.D))
                 //    vectorToMove.X += 1;
 
+                if(FocusedControl != null)
+                {
+                    // do we override...
+                    FocusedControl.Update(_input); // draw is taken care of with control structure. // list of children / compontents on game window. if is visible draw / update.
+                }
+
+                if(_input.IsKeyPressed(Keys.Enter))
+                {
+                    if(FocusedControl == null)
+                    {
+                        FocusedControl = _commandTextBoxUI;
+                    }
+                    else
+                    {
+                        if(FocusedControl == _commandTextBoxUI)
+                        {
+                            _commandTextBoxUI.Text = "";
+                        }
+                        // allows override?
+                        FocusedControl = null;
+                    }
+                }
+
                 if (_input.MouseState.RightButton == ButtonState.Pressed && _input.PrevMouseState.RightButton == ButtonState.Released)
                 {
                     var worldMousePos = GetMouseWorldPos(_input.MouseState);
@@ -841,6 +873,9 @@ namespace MageFollower.Client
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
             _spriteBatch.DrawString(_font, $"Creator Mode: {(_isCreatorModeOn ? "True" : "False")}", new Vector2(10, 10),
                     Color.White, 0.0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0);
+
+            _commandTextBoxUI?.Draw(_spriteBatch);
+
             _spriteBatch.End();
 
             base.Draw(gameTime);
