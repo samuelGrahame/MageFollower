@@ -23,6 +23,7 @@ namespace MageFollower.Particle
     public enum FloatingTextAnimationType
     {
         MoveUp,
-        MoveToRightAndShrink
+        MoveToRightAndShrink,
+        MoveUpAndShrink
     }
 }

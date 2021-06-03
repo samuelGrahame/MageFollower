@@ -87,9 +87,9 @@ namespace MageFollower
                 ElementType = ElementType.Fire,
                 RightHand = new World.Items.Item()
                 {
-                    Equipt = World.Items.EquiptType.Physical,
+                    Equipt = World.Items.EquiptType.Magic,
                     Power = 1.1f,
-                    Type = World.Items.ItemType.Stick
+                    Type = World.Items.ItemType.Wood_Ring
                 }
             };            
             listOfEnemies.Add(enemy);
@@ -166,8 +166,32 @@ namespace MageFollower
                         var newHealth = targetItem.Health;
                         if (!targetItem.IsAlive)
                         {
-                            item.Melee.AddXp(100);
-                            dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Melee), Xp = 100 })}<EOF>", null));
+                            Skill skill = null;
+                            string nameofSkill = "";
+                            switch (projectTile)
+                            {
+                                case Projectiles.ProjectileTypes.None:
+                                    skill = item.Melee;
+                                    nameofSkill = nameof(item.Melee);
+                                    item.Melee.AddXp(100);                                    
+                                    break;
+                                case Projectiles.ProjectileTypes.EnergyBall:
+                                    skill = item.Magic;
+                                    nameofSkill = nameof(item.Magic);
+                                    break;
+                                case Projectiles.ProjectileTypes.Arrow:
+                                    skill = item.Ranged;                                    
+                                    nameofSkill = nameof(item.Ranged);
+                                    break;
+                                default:
+                                    break;
+                            }
+
+                            if (skill != null)
+                            {
+                                skill.AddXp(100);
+                                dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameofSkill, Xp = 100 })}<EOF>", null));
+                            }                            
                         }
                         dataToSend.Enqueue(($"DMG:{targetItem.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
                     }
@@ -325,6 +349,7 @@ namespace MageFollower
                             }
                             else
                             {
+                                                               
                                 if (VectorHelper.AreInRange(item.GetAttackRange(), item.Position, item.TargetEntity.Position))
                                 {
                                     //targetPos = null;
@@ -332,7 +357,18 @@ namespace MageFollower
                                     {
                                         item.AttackSleep = 1000; // 1 second cool down for aa
                                         // support ranged attack.
-                                        AttackTarget(item, item.TargetEntity);
+                                        AttackTarget(item, item.TargetEntity);                                        
+                                    }
+
+                                    if (item.GetProjectTileType() != Projectiles.ProjectileTypes.None)
+                                    {
+                                        Vector2 dPos = item.Position - item.TargetEntity.Position;
+                                        var newRotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                                        if(newRotation != item.Rotation)
+                                        {
+                                            item.Rotation = newRotation;
+                                            dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
+                                        }                                        
                                     }
                                 }
                                 else
@@ -344,8 +380,8 @@ namespace MageFollower
                                     dir.Normalize();
                                     item.Position += dir * item.Speed * (float)st.ElapsedMilliseconds / 1000.0f;
                                     item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
-                                    
-                                    dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position } )}<EOF>", null));
+
+                                    dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
                                 }
                             }
                         }
@@ -483,7 +519,7 @@ namespace MageFollower
                                             Speed = 350,
                                             Id = i.ToString()
                                         };
-                                        if (chance < 0.33f)
+                                        if (chance < 0.5f)
                                         {
                                             newEntity.ElementType = ElementType.Fire;
                                             newEntity.Color = Color.OrangeRed;
@@ -493,7 +529,9 @@ namespace MageFollower
                                                 Power = 1.1f,
                                                 Type = World.Items.ItemType.Wood_Bow
                                             };
-                                        }else  if (chance < 0.66f)
+                                            newEntity.Ranged.AddXp(10000);
+                                        }
+                                        else  if (chance < 1f)
                                         {
                                             newEntity.ElementType = ElementType.Water;
                                             newEntity.Color = Color.DodgerBlue;
@@ -503,6 +541,7 @@ namespace MageFollower
                                                 Power = 1.1f,
                                                 Type = World.Items.ItemType.Wood_Ring
                                             };
+                                            newEntity.Magic.AddXp(10000);
                                         }
                                         else
                                         {
@@ -514,8 +553,9 @@ namespace MageFollower
                                                 Power = 1.2f,
                                                 Type = World.Items.ItemType.Stick
                                             };
+                                            newEntity.Melee.AddXp(10000);
                                         }
-
+                                        
 
 
                                         var newPass = createPassword(10);

@@ -390,11 +390,11 @@ namespace MageFollower.Client
                                             {
                                                 Text = dmgDone,
                                                 Position = entity.Position - new Vector2(size.X, size.Y),
-                                                Color = Color.White,
+                                                Color = Color.Red,
                                                 TotalTimeToRemove = 500.0f,
                                                 StartingTime = 500.0f,
                                                 Scale = 1.5f,
-                                                AnimationType = FloatingTextAnimationType.MoveToRightAndShrink,
+                                                AnimationType = FloatingTextAnimationType.MoveUpAndShrink,
                                                 DrawColorBackGround = true,
                                                 ColorBackGround = Color.Black
                                             });
@@ -684,10 +684,13 @@ namespace MageFollower.Client
                 if (_targetPos == null)
                 {
                     if(_targetEntity == null)
-                    {                        
-                        Vector2 dPos = _player.Position - GetMouseWorldPos(_input.MouseState);
+                    {
+                        if (IsActive)
+                        {
+                            Vector2 dPos = _player.Position - GetMouseWorldPos(_input.MouseState);
 
-                        _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                            _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        }                        
                     }
                     else
                     {
@@ -767,6 +770,13 @@ namespace MageFollower.Client
 
                             item.Scale -= 1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+                            break;
+                        case FloatingTextAnimationType.MoveUpAndShrink:
+                            item.Color.A = (byte)(255.0f * (item.TotalTimeToRemove / item.StartingTime));
+                            item.Position -= new Vector2(0,
+                                25 * (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+                            item.Scale -= 1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
                             break;
                         default:
                             break;
