@@ -1,4 +1,6 @@
-﻿using MageFollower.World.Element;
+﻿using MageFollower.PacketData;
+using MageFollower.Projectiles;
+using MageFollower.World.Element;
 using MageFollower.World.Items;
 using MageFollower.World.Skills;
 using Microsoft.Xna.Framework;
@@ -43,6 +45,34 @@ namespace MageFollower.World
         public bool LerpToTarger;
         [JsonIgnore]
         public double TotalTimeLerp;
+
+        public ProjectileTypes GetProjectTileType()
+        {
+            if (RightHand == null)
+                return ProjectileTypes.None;
+
+            if (RightHand.Equipt == EquiptType.Ranged)
+                return ProjectileTypes.Arrow;
+
+            if (RightHand.Equipt == EquiptType.Magic)
+                return ProjectileTypes.EnergyBall;
+
+            return ProjectileTypes.None;
+        }
+
+        public float GetAttackRange()
+        {
+            switch (GetProjectTileType())
+            {
+                default:
+                case ProjectileTypes.None:
+                    return 75.0f;
+                case ProjectileTypes.EnergyBall:
+                    return 600.0f;
+                case ProjectileTypes.Arrow:
+                    return 700.0f;
+            }            
+        }
 
         [JsonProperty("i8")]
         public float Rotation;

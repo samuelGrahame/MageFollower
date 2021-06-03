@@ -1,4 +1,6 @@
-﻿using MageFollower.Particle;
+﻿using MageFollower.PacketData;
+using MageFollower.Particle;
+using MageFollower.Projectiles;
 using MageFollower.UI;
 using MageFollower.Utilities;
 using MageFollower.World;
@@ -8,6 +10,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -28,14 +31,18 @@ namespace MageFollower.Client
         private Texture2D _healthBarBase;
         private Texture2D _targetCircle;
         private SpriteFont _font;
-        private Dictionary<EnviromentType, Texture2D> enviromentTextures = new Dictionary<EnviromentType, Texture2D>();
+
+        private Dictionary<EnviromentType, Texture2D> enviromentTextures = new();
+        private Dictionary<ProjectileTypes, Texture2D> projectileTypesTextures = new();
+
         private float _nintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float _worldRotation = 0.0f;
         private float _worldZoom = 1f;
         private float _mousePressScale = 0.0f;
         private Entity _player;
-        private List<Entity> _entities;
-        private Dictionary<string, Entity> _entitiesById = new Dictionary<string, Entity>();
+        //private List<Entity> _entities;
+        private ConcurrentDictionary<string, Entity> _entitiesById = new();
+        private ConcurrentDictionary<Guid, ProjectTile> _projectTilesById = new();
         private World.Enviroment _worldEnviroment = new();
         private Vector2? _targetPos = null;
         private Entity _targetEntity = null;
@@ -67,8 +74,9 @@ namespace MageFollower.Client
         private UITextBox _commandTextBoxUI;
 
         public SpriteFont DefaultFont => _font;
+        private string _server;
 
-        public Game2D()
+        public Game2D(string server = "")
         {
             _graphics = new GraphicsDeviceManager(this);
 
@@ -79,7 +87,7 @@ namespace MageFollower.Client
 
             IsFixedTimeStep = true;  //Force the game to update at fixed time intervals
             TargetElapsedTime = TimeSpan.FromSeconds(1 / 60.0f);  //Set the time interval to 1/30th of a second            
-            
+            _server = server;
         }
 
         
@@ -93,7 +101,7 @@ namespace MageFollower.Client
 
             //_graphics.ApplyChanges();
 
-            _entities = new List<Entity>();
+            //_entities = new List<Entity>();
             
             StartClient();
             _commandTextBoxUI = new UITextBox(this)
@@ -145,19 +153,37 @@ namespace MageFollower.Client
             base.UnloadContent();
 
             // Release the socket.    
-            _sender.Shutdown(SocketShutdown.Both);
-            _sender.Close();
+            try
+            {
+                _sender.Shutdown(SocketShutdown.Both);
+                _sender.Close();
+            }
+            catch (Exception)
+            {
+
+            }
+
+            Environment.Exit(-1);
         }
         protected override void LoadContent()
         {
             IsMouseVisible = true;
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
+            enviromentTextures.Add(
+                EnviromentType.None,
+                null); // allows for get ranged.
 
             enviromentTextures.Add(
                 EnviromentType.Tree01, 
                 Content.Load<Texture2D>("Trees/Tree01"));
-            
+
+            projectileTypesTextures.Add(ProjectileTypes.EnergyBall,
+                Content.Load<Texture2D>("Projectiles/EnergyBall01"));
+
+            projectileTypesTextures.Add(ProjectileTypes.Arrow,
+                Content.Load<Texture2D>("Projectiles/Arrow01"));
+
             _person01 = Content.Load<Texture2D>("People/Person01_Idle");
             _personGhost01 = Content.Load<Texture2D>("People/Person01_Ghost_Idle");
             _moveToX = Content.Load<Texture2D>("Other/MoveToX");
@@ -198,7 +224,17 @@ namespace MageFollower.Client
                 // If a host has multiple addresses, you will get a list of addresses  
                 IPHostEntry host = Dns.GetHostEntry("localhost");
                 IPAddress ipAddress = host.AddressList[0];
-                IPEndPoint remoteEP = new IPEndPoint(ipAddress, 11000);
+
+                IPEndPoint remoteEP;
+
+                if(string.IsNullOrWhiteSpace(_server))
+                {
+                    remoteEP = new IPEndPoint(ipAddress, 11000);
+                }
+                else
+                {
+                    remoteEP = new IPEndPoint(IPAddress.Parse(_server), 11000);
+                }
 
                 // Create a TCP/IP  socket.    
                 _sender = new Socket(ipAddress.AddressFamily,
@@ -299,8 +335,18 @@ namespace MageFollower.Client
 
                                         if (!_entitiesById.ContainsKey(newEntity.Id))
                                         {
-                                            _entitiesById[newEntity.Id] = newEntity;
-                                            _entities.Add(newEntity);
+                                            _entitiesById[newEntity.Id] = newEntity;                                            
+                                        }
+                                    }else if(item.StartsWith("NEW-P:"))
+                                    {
+                                        var newPlayer = item.Substring("NEW-P:".Length, item.Length - "NEW-P:".Length);
+                                        var projectTile = JsonConvert.DeserializeObject<ProjectTile>(newPlayer, _config);
+
+                                        if (!_projectTilesById.ContainsKey(projectTile.Guid) &&
+                                            _entitiesById.ContainsKey(projectTile.FromId) &&
+                                            _entitiesById.ContainsKey(projectTile.ToId))
+                                        {
+                                            _projectTilesById[projectTile.Guid] = projectTile;
                                         }
                                     }
                                     else if (item.StartsWith("POS:"))
@@ -407,10 +453,8 @@ namespace MageFollower.Client
                                         }
 
                                         if (_entitiesById.ContainsKey(idToRemove))
-                                        {
-                                            var enttiy = _entitiesById[idToRemove];
-                                            _entities.Remove(enttiy);
-                                            _entitiesById.Remove(idToRemove);
+                                        {                                                                                        
+                                            _entitiesById.Remove(idToRemove, out _);
                                         }
                                         //DEL: { entityToRemove.Id}< EOF >
                                     }
@@ -541,12 +585,24 @@ namespace MageFollower.Client
                     else
                     {
                         // TODO Have Physics engine do a ray cast. just do hard working loop.                        
-                        var clickedOn = _entities.FirstOrDefault(o =>
-                            o != _player && VectorHelper.AreInRange(128.0f, o.Position, worldMousePos));
+                        var entities = _entitiesById.Values;
+                        var clickedOn = entities.Where(o =>
+                            o != _player && VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList();
 
-                        if(clickedOn != null)
+                        if(clickedOn != null && clickedOn.Count > 0)
                         {
-                            SetTargetOnServer(clickedOn);
+                            if (clickedOn.Count == 0)
+                            {
+                                SetTargetOnServer(clickedOn[0]);
+                            }
+                            else
+                            {
+                                SetTargetOnServer(
+                                    clickedOn.OrderBy(o =>
+                                        Vector2.Distance(o.Position, worldMousePos)).
+                                    FirstOrDefault());
+                            }
+                            
                         }
                     }
                 }
@@ -578,7 +634,7 @@ namespace MageFollower.Client
                     {
                         _targetPos = _targetEntity.Position;
                         // are we in range of attack? do we do it from server.
-                        if(VectorHelper.AreInRange(75.0f, _player.Position, _targetEntity.Position))
+                        if(VectorHelper.AreInRange(_player.GetAttackRange(), _player.Position, _targetEntity.Position))
                         {
                             _targetPos = null;
                         }
@@ -657,10 +713,10 @@ namespace MageFollower.Client
                 if (_worldZoom < 0.5f)
                     _worldZoom = 0.5f;
 
-            }
-
-            foreach (var item in _entities)
+            }            
+            foreach (var itemPair in _entitiesById)
             {
+                var item = itemPair.Value;
                 if(item != _player && item.LerpToTarger)
                 {
                     item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;                    
@@ -697,6 +753,44 @@ namespace MageFollower.Client
                 }
             }
 
+            var values = _projectTilesById.Values;
+
+            foreach (var item in values)
+            {
+                if (item.ProjectileTypes == ProjectileTypes.None)
+                {
+                    _projectTilesById.TryRemove(item.Guid, out ProjectTile outItem);
+                }
+                else
+                {
+                    item.TotalTime += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                    if (item.TotalTime > item.ExpireMs)
+                    {
+                        _projectTilesById.Remove(item.Guid, out ProjectTile outItem);
+                    }
+                    else
+                    {
+                        if (!_entitiesById.ContainsKey(item.ToId) || !_entitiesById.ContainsKey(item.FromId))
+                        {
+                            _projectTilesById.Remove(item.Guid, out ProjectTile outItem);
+                        }
+                        else
+                        {
+                            var fromEntity = _entitiesById[item.FromId];
+                            var toEntity = _entitiesById[item.ToId];
+
+                            var time = item.TotalTime == 0.0f ? 0.0f : item.TotalTime / item.ExpireMs;
+                            item.CurrentPos = Vector2.LerpPrecise(fromEntity.Position, toEntity.Position, time);
+
+                            Vector2 dPos = item.CurrentPos - toEntity.Position;
+                            item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        }
+                    }
+                }
+            }
+
+
             _input.PrevMouseState = _input.MouseState;
             _input.PrevKeyboardState = _input.KeyboardState;
 
@@ -724,8 +818,9 @@ namespace MageFollower.Client
                 null, null, null, get_transformation(GraphicsDevice));
 
             // _spriteBatch.Draw(person01, playerPos, Color.White);
-            foreach (var item in _entities)
+            foreach (var itemPair in _entitiesById)
             {
+                var item = itemPair.Value;
                 var rotation = item.Rotation - _nintyRadius;
                 if(item.IsAlive)
                 {
@@ -808,6 +903,24 @@ namespace MageFollower.Client
                 //    (int)(100.0f * (item.Health / item.MaxHealth)), 10),
                 //    null, item == Player ? Color.Yellow : Color.Red, 0.0f, Vector2.Zero, SpriteEffects.None, 0);
             }
+
+            var values = _projectTilesById.Values;
+            foreach (var item in values)
+            {
+                if (item.ProjectileTypes == ProjectileTypes.None)
+                    continue;
+                var textureProjectTile = projectileTypesTextures[item.ProjectileTypes];
+                _spriteBatch.Draw(textureProjectTile,
+                             item.CurrentPos,
+                             null,
+                             item.Color,
+                             item.Rotation,
+                             new Vector2(16, 16),
+                             item.ProjectileTypes == ProjectileTypes.Arrow ? 1.5f : 1.0f,
+                             SpriteEffects.None,
+                             0.9f);
+            }
+
 
             Texture2D texture = null;
             EnviromentType enviromentType = EnviromentType.None;

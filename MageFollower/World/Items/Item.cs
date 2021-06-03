@@ -6,8 +6,8 @@ namespace MageFollower.World.Items
 {
     public class Item
     {
-        public EquiptType Equipt { get; set; }
-        public ItemType Type { get; set; }
-        public double Power { get; set; }
+        public EquiptType Equipt;
+        public ItemType Type;
+        public double Power;
     }
 }

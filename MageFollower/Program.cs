@@ -1,4 +1,5 @@
 ﻿using MageFollower.Client;
+using MageFollower.PacketData;
 using MageFollower.Utilities;
 using MageFollower.World;
 using MageFollower.World.Element;
@@ -24,112 +25,16 @@ namespace MageFollower
         static extern bool AllocConsole();
         static void Main(string[] args)
         {            
-            //if(args != null && args.Length > 0 || Debugger.IsAttached) // 
-            //{
-            //    if (Debugger.IsAttached || args[0] == "server") // 
-            //    {
-            //        AllocConsole();
-            //        StartServer();
-            //        return;
-            //    }
-            //}      
-
-            //if(Debugger.IsAttached)
-            //    AllocConsole();
-
-            using (var game = new Game2D())
+            string server = "";
+            if(args != null && args.Length > 0)
+            {
+                server = args[0];
+            }
+            using (var game = new Game2D(server))
                 game.Run();
-
-            //var r = new Random();
-            //var fireMelee = new Entity() { 
-            //    ElementType = ElementType.Fire,
-            //    Health = 100,
-            //    Name = "The Fire Swordsman"
-            //};
-            //fireMelee.Melee.AddXp(10000.0f);            
-            //fireMelee.RightHand = new World.Items.Item()
-            //{
-            //    Equipt = World.Items.EquiptType.Physical,
-            //    Power = 1.1f,
-            //    Type = World.Items.ItemType.Stick
-            //};
-
-            //var waterMelee = new Entity()
-            //{
-            //    ElementType = ElementType.Water,
-            //    Health = 100,
-            //    Name = "The Water Swordsman"
-            //};
-            //waterMelee.Melee.AddXp(10000.0f);
-            //waterMelee.RightHand = new World.Items.Item()
-            //{
-            //    Equipt = World.Items.EquiptType.Physical,
-            //    Power = 1.1f,
-            //    Type = World.Items.ItemType.Stick
-            //};
-
-            //if(r.NextDouble() < 0.5f)
-            //{
-            //    while (waterMelee.IsAlive && fireMelee.IsAlive)
-            //    {
-            //        fireMelee.AttackTarget(waterMelee,
-            //            r.NextDouble());
-            //        Thread.Sleep(100);
-            //        if (waterMelee.IsAlive)
-            //        {
-            //            waterMelee.AttackTarget(fireMelee,
-            //                r.NextDouble());
-
-            //            Thread.Sleep(100);
-            //        }
-            //    }
-            //}
-            //else
-            //{
-            //    while (waterMelee.IsAlive && fireMelee.IsAlive)
-            //    {
-            //        waterMelee.AttackTarget(fireMelee,
-            //            r.NextDouble());
-            //        Thread.Sleep(100);
-            //        if (fireMelee.IsAlive)
-            //        {
-            //            fireMelee.AttackTarget(waterMelee,
-            //                r.NextDouble());
-
-            //            Thread.Sleep(100);
-            //        }
-            //    }
-            //}
-
-
-            //Console.WriteLine($"The winner is: {(waterMelee.Health > 0 ? waterMelee.Name : fireMelee.Name)}");
-            //Console.Read();
         }
 
-        // TODO Move to Networking
-        public class XpToTarget
-        {
-            [JsonProperty("x")]
-            public float Xp;
-            [JsonProperty("l")]
-            public string Level;
-        }
-        public class DamageToTarget
-        {            
-            [JsonProperty("h")]
-            public double HealthToSet;
-            [JsonProperty("d")]
-            public double DamageDone;
-        }
-        public class Transform
-        {
-            [JsonProperty("p")]    
-            public Vector2 Position;
-            [JsonProperty("r")]
-            public float Rotation;
-        }
-
-        static string CreatePassword(int length)
+        static string createPassword(int length)
         {
             const string valid = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
             StringBuilder res = new();
@@ -142,17 +47,24 @@ namespace MageFollower
         }
 
         //
-        public static void StartServer()
+        static Random r = new Random();
+        public static void StartServer(string serverHost = "")
         {
             // Get Host IP Address that is used to establish a connection  
             // In this case, we get one IP address of localhost that is IP : 127.0.0.1  
             // If a host has multiple addresses, you will get a list of addresses  
-            IPHostEntry host = Dns.GetHostEntry("localhost");
-            IPAddress ipAddress = host.AddressList[0];
+            IPAddress ipAddress = null;
+            if(string.IsNullOrWhiteSpace(serverHost))
+            {
+                IPHostEntry host = Dns.GetHostEntry("localhost");
+                ipAddress = host.AddressList[0];
+            }
+            else
+            {
+                ipAddress = IPAddress.Parse(serverHost);
+            }
+            
             IPEndPoint localEndPoint = new(ipAddress, 11000);
-
-
-
 
             var listOfEntities = new List<Entity>();            
             var listOfSockets = new List<Socket>();
@@ -161,7 +73,7 @@ namespace MageFollower
             var IdToSocket = new Dictionary<string, (Socket socket, Entity entity)>();
             var worldEnviorment = new Enviroment();
             var idToEntity = new Dictionary<string, Entity>();
-
+            var listOfProjectTiles = new List<ProjectTile>();
             var listOfEnemies = new List<Entity>();
 
             var enemy = new Entity()
@@ -179,26 +91,10 @@ namespace MageFollower
                     Power = 1.1f,
                     Type = World.Items.ItemType.Stick
                 }
-            };
-            //enemy.Melee.AddXp(10000.0f);
+            };            
             listOfEnemies.Add(enemy);
 
             idToEntity.Add(enemy.Id, enemy);
-
-            //var fireMelee = new Entity() { 
-            //    ElementType = ElementType.Fire,
-            //    Health = 100,
-            //    Name = "The Fire Swordsman"
-            //};
-            //fireMelee.Melee.AddXp(10000.0f);            
-            //fireMelee.RightHand = new World.Items.Item()
-            //{
-            //    Equipt = World.Items.EquiptType.Physical,
-            //    Power = 1.1f,
-            //    Type = World.Items.ItemType.Stick
-            //};
-
-            // load worlds;
 
             try
             {
@@ -255,7 +151,58 @@ namespace MageFollower
                         
                     }
                 });
+
                 saveGameWorld.Start();
+
+                void AttackTarget(Entity item, Entity targetItem, bool processProjectTile = true)
+                {
+                    var projectTile = item.GetProjectTileType();
+
+                    if (projectTile == Projectiles.ProjectileTypes.None || !processProjectTile)
+                    {
+                        // instant attack.. // todo init animation
+                        var startingHealth = targetItem.Health;
+                        item.AttackTarget(targetItem, r.NextDouble());
+                        var newHealth = targetItem.Health;
+                        if (!targetItem.IsAlive)
+                        {
+                            item.Melee.AddXp(100);
+                            dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Melee), Xp = 100 })}<EOF>", null));
+                        }
+                        dataToSend.Enqueue(($"DMG:{targetItem.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
+                    }
+                    else
+                    {
+                        // get distance.
+                        var preTarget = item.TargetEntity;
+                        var distance = Vector2.Distance(item.Position, targetItem.Position);
+                        var newProjectTile = new ProjectTile() { 
+                            ExpireMs = (distance / 600.0f) * 1000.0f,
+                            FromId = item.Id,
+                            Guid = Guid.NewGuid(),
+                            OnExpire = () => {
+                                AttackTarget(item, preTarget, false);
+                            },
+                            ProjectileTypes = projectTile,
+                            ToId = targetItem.Id
+                        };
+
+                        if(item.ElementType == ElementType.Fire)
+                        {
+                            newProjectTile.Color = Color.Red;
+                        }else if (item.ElementType == ElementType.Water)
+                        {
+                            newProjectTile.Color = Color.DodgerBlue;
+                        }
+                        else if (item.ElementType == ElementType.Air)
+                        {
+                            newProjectTile.Color = Color.WhiteSmoke;
+                        }
+
+                        listOfProjectTiles.Add(newProjectTile);
+                        dataToSend.Enqueue(($"NEW-P:{JsonConvert.SerializeObject(newProjectTile)}<EOF>", null));
+                    }                    
+                }
 
                 var playersDispatchThread = new Thread(() =>
                 {
@@ -281,23 +228,13 @@ namespace MageFollower
                             }
                             else
                             {
-                                if (VectorHelper.AreInRange(75.0f, item.Position, item.TargetEntity.Position))
+                                if (VectorHelper.AreInRange(item.GetAttackRange(), item.Position, item.TargetEntity.Position))
                                 {
                                     //targetPos = null;
                                     if (item.AttackSleep == 0)
                                     {
-                                        var startingHealth = item.TargetEntity.Health;
-                                        item.AttackTarget(item.TargetEntity, r.NextDouble());
-                                        var newHealth = item.TargetEntity.Health;
-                                        item.AttackSleep = 1000; // 3 second cool down for aa
-
-                                        if (!item.TargetEntity.IsAlive)
-                                        {
-                                            item.Melee.AddXp(100);
-                                            dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Melee), Xp = 100 })}<EOF>", null));
-                                        }
-
-                                        dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
+                                        item.AttackSleep = 1000; // 1 second cool down for aa
+                                        AttackTarget(item, item.TargetEntity);                                        
                                     }
                                 }
                                 else
@@ -313,6 +250,19 @@ namespace MageFollower
 
                                     //dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
                                 }
+                            }
+                        }
+
+                        for (int i = listOfProjectTiles.Count - 1; i >= 0; i--)
+                        {
+                            var item = listOfProjectTiles[i];
+
+                            item.ExpireMs -= st.ElapsedMilliseconds;
+                            if(item.ExpireMs <= 0)
+                            {
+                                item.ExpireMs = 0;
+                                listOfProjectTiles.RemoveAt(i);
+                                item.OnExpire?.Invoke();
                             }
                         }
 
@@ -375,16 +325,14 @@ namespace MageFollower
                             }
                             else
                             {
-                                if (VectorHelper.AreInRange(75.0f, item.Position, item.TargetEntity.Position))
+                                if (VectorHelper.AreInRange(item.GetAttackRange(), item.Position, item.TargetEntity.Position))
                                 {
                                     //targetPos = null;
                                     if(item.AttackSleep == 0)
                                     {
-                                        var startingHealth = item.TargetEntity.Health;
-                                        item.AttackTarget(item.TargetEntity, r.NextDouble());
-                                        var newHealth = item.TargetEntity.Health;
-                                        item.AttackSleep = 1000; // 3 second cool down for aa
-                                        dataToSend.Enqueue(($"DMG:{item.TargetEntity.Id}:{JsonConvert.SerializeObject(new DamageToTarget() { DamageDone = startingHealth - newHealth, HealthToSet = newHealth })}<EOF>", null));
+                                        item.AttackSleep = 1000; // 1 second cool down for aa
+                                        // support ranged attack.
+                                        AttackTarget(item, item.TargetEntity);
                                     }
                                 }
                                 else
@@ -433,16 +381,35 @@ namespace MageFollower
                                 {
                                     foreach (var item in keys)
                                     {
-                                        item.Send(msg);
+                                        if(item.Connected)
+                                        {
+                                            try
+                                            {
+                                                item.Send(msg);
+                                            }
+                                            catch (Exception)
+                                            {
+
+                                            }
+                                        }                                            
                                     }
                                 }
                                 else
                                 {
                                     foreach (var item in keys)
                                     {
-                                        if(item != dataPack.exclude)
-                                            item.Send(msg);
+                                        if(item != dataPack.exclude && item.Connected)
+                                        {
+                                            try
+                                            {
+                                                item.Send(msg);
+                                            }
+                                            catch (Exception)
+                                            {
 
+                                            }
+                                            
+                                        }
                                     }                                    
                                 }
                                 
@@ -507,24 +474,51 @@ namespace MageFollower
 
                                     if (item.StartsWith("NEW:"))
                                     {
+                                        var chance = r.NextDouble();
                                         var newEntity = new Entity()
                                         {
                                             Health = 1000,
                                             MaxHealth = 1000,
                                             Name = "Human " + i.ToString(),
                                             Speed = 350,
-                                            ElementType = ElementType.Water,
-                                            Color = Color.Blue,
-                                            RightHand = new World.Items.Item()
+                                            Id = i.ToString()
+                                        };
+                                        if (chance < 0.33f)
+                                        {
+                                            newEntity.ElementType = ElementType.Fire;
+                                            newEntity.Color = Color.OrangeRed;
+                                            newEntity.RightHand = new World.Items.Item()
+                                            {
+                                                Equipt = World.Items.EquiptType.Ranged,
+                                                Power = 1.1f,
+                                                Type = World.Items.ItemType.Wood_Bow
+                                            };
+                                        }else  if (chance < 0.66f)
+                                        {
+                                            newEntity.ElementType = ElementType.Water;
+                                            newEntity.Color = Color.DodgerBlue;
+                                            newEntity.RightHand = new World.Items.Item()
+                                            {
+                                                Equipt = World.Items.EquiptType.Magic,
+                                                Power = 1.1f,
+                                                Type = World.Items.ItemType.Wood_Ring
+                                            };
+                                        }
+                                        else
+                                        {
+                                            newEntity.ElementType = ElementType.Air;
+                                            newEntity.Color = Color.SeaShell;
+                                            newEntity.RightHand = new World.Items.Item()
                                             {
                                                 Equipt = World.Items.EquiptType.Physical,
-                                                Power = 1.1f,
+                                                Power = 1.2f,
                                                 Type = World.Items.ItemType.Stick
-                                            },
-                                            Id = i.ToString()
-                                        };                                        
+                                            };
+                                        }
 
-                                        var newPass = CreatePassword(10);
+
+
+                                        var newPass = createPassword(10);
 
                                         listOfEntities.Add(newEntity);
 

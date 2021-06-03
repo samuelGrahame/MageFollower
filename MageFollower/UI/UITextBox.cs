@@ -107,6 +107,21 @@ namespace MageFollower.UI
 
                 CursorPos += 1;
                 return true;
+            }else if(key == Keys.Back)
+            {
+                if (CursorPos > 0)
+                {
+                    _innerList.RemoveAt(CursorPos - 1);
+                    CursorPos--;
+                    return true;
+                }
+            }else if(key == Keys.Delete)
+            {
+                if (CursorPos < _innerList.Count)
+                {
+                    _innerList.RemoveAt(CursorPos);
+                    return true;
+                }
             }
             return false;
         }

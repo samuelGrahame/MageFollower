@@ -6,7 +6,12 @@ namespace MageFollower.Server
     {
         static void Main(string[] args)
         {
-            MageFollower.Program.StartServer();
+            string server = "";
+            if (args != null && args.Length > 0)
+            {
+                server = args[0];
+            }
+            MageFollower.Program.StartServer(server);
         }
     }
 }
