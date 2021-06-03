@@ -20,6 +20,13 @@
 /processorParam:TextureFormat=Compressed
 /build:Fonts/SegoeUI.spritefont
 
+#begin Fonts/SegoeUIBold.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:Fonts/SegoeUIBold.spritefont
+
 #begin Other/HealthBarBase.png
 /importer:TextureImporter
 /processor:TextureProcessor

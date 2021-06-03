@@ -31,19 +31,22 @@ namespace MageFollower.Client
         private Texture2D _healthBarBase;
         private Texture2D _targetCircle;
         private SpriteFont _font;
+        private SpriteFont _fontBold;
 
         private Dictionary<EnviromentType, Texture2D> enviromentTextures = new();
         private Dictionary<ProjectileTypes, Texture2D> projectileTypesTextures = new();
 
         private float _nintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float _worldRotation = 0.0f;
-        private float _worldZoom = 1f;
+        private float _worldZoom = 0.5f;
         private float _mousePressScale = 0.0f;
         private Entity _player;
         //private List<Entity> _entities;
         private ConcurrentDictionary<string, Entity> _entitiesById = new();
         private ConcurrentDictionary<Guid, ProjectTile> _projectTilesById = new();
         private World.Enviroment _worldEnviroment = new();
+
+
         private Vector2? _targetPos = null;
         private Entity _targetEntity = null;
         private Matrix _transform;
@@ -190,7 +193,7 @@ namespace MageFollower.Client
             _targetCircle = Content.Load<Texture2D>("Other/TargetCircle");
 
             _font = Content.Load<SpriteFont>("Fonts/SegoeUI");
-
+            _fontBold = Content.Load<SpriteFont>("Fonts/SegoeUIBold");
             _healthBarBase = Content.Load<Texture2D>("Other/HealthBarBase");
             // TODO: use this.Content to load your game content here
         }
@@ -386,10 +389,14 @@ namespace MageFollower.Client
                                             _floatingTextList.Add(new FloatingDamageText()
                                             {
                                                 Text = dmgDone,
-                                                Position = entity.Position - new Vector2(size.X, 150.0f),
+                                                Position = entity.Position - new Vector2(size.X, size.Y),
                                                 Color = Color.White,
-                                                TotalTimeToRemove = 2000.0f,
-                                                StartingTime = 2000.0f
+                                                TotalTimeToRemove = 500.0f,
+                                                StartingTime = 500.0f,
+                                                Scale = 1.5f,
+                                                AnimationType = FloatingTextAnimationType.MoveToRightAndShrink,
+                                                DrawColorBackGround = true,
+                                                ColorBackGround = Color.Black
                                             });
                                         }
                                     }else if (item.StartsWith("ADDXP:"))
@@ -435,8 +442,8 @@ namespace MageFollower.Client
                                         var itemToSpawn = item.Substring("SPAWN:".Length, item.Length - "SPAWN:".Length);
                                         try
                                         {
-                                            var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, _config);//ListOfTrees
-                                            _worldEnviroment.EnviromentItems.Add(enviromentItem);
+                                            var enviromentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn, _config);//ListOfTrees                                            
+                                            _worldEnviroment.EnviromentItems[enviromentItem.Guid] = enviromentItem;
                                         }
                                         catch (Exception)
                                         {
@@ -736,7 +743,7 @@ namespace MageFollower.Client
                         item.Rotation = item.TargetRotation;//; MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
                 }
             }
-
+            // TODO: Lock
             for (int i = _floatingTextList.Count - 1; i >= 0; i--)
             {
                 var item = _floatingTextList[i];
@@ -747,9 +754,25 @@ namespace MageFollower.Client
                 }
                 else
                 {
-                    item.Color.A = (byte)(255.0f * (item.TotalTimeToRemove / item.StartingTime));
-                    item.Position -= new Vector2(0, 
-                        25 * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                    switch (item.AnimationType)
+                    {
+                        case FloatingTextAnimationType.MoveUp:
+                            item.Color.A = (byte)(255.0f * (item.TotalTimeToRemove / item.StartingTime));
+                            item.Position -= new Vector2(0,
+                                25 * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                            break;
+                        case FloatingTextAnimationType.MoveToRightAndShrink:
+                            item.Position +=  new Vector2(25.0f * (float)gameTime.ElapsedGameTime.TotalSeconds,
+                                10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+                            item.Scale -= 1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                            break;
+                        default:
+                            break;
+                    }
+
+                    
                 }
             }
 
@@ -925,8 +948,10 @@ namespace MageFollower.Client
             Texture2D texture = null;
             EnviromentType enviromentType = EnviromentType.None;
 
-            foreach (var item in _worldEnviroment.EnviromentItems)
+            foreach (var itemPair in _worldEnviroment.EnviromentItems)
             {
+                var item = itemPair.Value;
+
                 if(item.ItemType != enviromentType)
                 {
                     texture = enviromentTextures[item.ItemType];
@@ -957,9 +982,14 @@ namespace MageFollower.Client
 
 
             foreach (var item in _floatingTextList)
-            {
+            {                
+                if(item.DrawColorBackGround)
+                {
+                    _spriteBatch.DrawString(_fontBold, item.Text, item.Position - new Vector2(1.0f, 1.0f),
+                        item.ColorBackGround, 0.0f, Vector2.Zero, item.Scale + 0.1f, SpriteEffects.None, 0);
+                }
                 _spriteBatch.DrawString(_font, item.Text, item.Position,
-                    item.Color, 0.0f, Vector2.Zero, 1.6f, SpriteEffects.None, 0);
+                    item.Color, 0.0f, Vector2.Zero, item.Scale, SpriteEffects.None, 0);
             }
 
             if (_targetPos != null)
