@@ -34,6 +34,7 @@ namespace MageFollower.World
     public enum EnviromentType
     {
         None,
-        Tree01
+        Tree01,
+        Tree02
     }
 }

@@ -111,6 +111,9 @@ namespace MageFollower.Client
                 EnviromentType.Tree01,
                 Content.Load<Texture2D>("Trees/Tree01"));
 
+            enviromentTextures.Add(
+                EnviromentType.Tree02,
+                Content.Load<Texture2D>("Trees/Tree02"));
 
             projectileTypesTextures.Add(
                 ProjectileTypes.None,
@@ -440,10 +443,6 @@ namespace MageFollower.Client
         }
         private void SpawnItemAtPos(EnviromentType type, Vector2 pos)
         {
-            if (type == EnviromentType.Tree01)
-            {
-                pos -= new Vector2(-35, 150);
-            }
             _dataToSend.Enqueue($"SPAWN:{JsonConvert.SerializeObject(new EnviromentItem() { Position = pos, ItemType = type }, JsonHelper.Config)}<EOF>");
         }
 
@@ -452,6 +451,34 @@ namespace MageFollower.Client
             var ms = mouseState.Position;
             Matrix inverseTransform = Matrix.Invert(_transform);
             return Vector2.Transform(new Vector2(ms.X, ms.Y), inverseTransform);
+        }
+
+        private static Array _enviromentTypes = Enum.GetValues(typeof(EnviromentType));
+
+        private void processGodModeKeyPress()
+        {
+            if(Input.IsKeyPressed(Keys.Up))
+            {
+                if((EnviromentType)(_enviromentTypes.Length - 1) == _itemTpAddOnRightClick)
+                {
+                    _itemTpAddOnRightClick = (EnviromentType)(1);
+                }
+                else
+                {
+                    _itemTpAddOnRightClick++;
+                }
+            }else if (Input.IsKeyPressed(Keys.Down))
+            {
+                if((int)_itemTpAddOnRightClick > 1)
+                {
+                    _itemTpAddOnRightClick--;
+                }
+                else
+                {
+                    _itemTpAddOnRightClick = (EnviromentType)(_enviromentTypes.Length - 1);
+                }
+                
+            }
         }
 
         public override void Update(GameTime gameTime)
@@ -530,6 +557,11 @@ namespace MageFollower.Client
                 if (Input.PrevKeyboardState.IsKeyUp(Keys.G) && Input.KeyboardState.IsKeyDown(Keys.G))
                 {
                     _isCreatorModeOn = !_isCreatorModeOn;
+                }
+
+                if (_isCreatorModeOn)
+                {
+                    processGodModeKeyPress();
                 }
 
                 if (Input.MouseState.LeftButton == ButtonState.Pressed)
@@ -870,7 +902,7 @@ namespace MageFollower.Client
                  null,
                  new Color(Color.Black, 0.2f),
                  1.0f,
-                 Vector2.Zero,
+                 new Vector2(128, 128),
                  1.0f,
                  SpriteEffects.None,
                  0.2f);
@@ -880,7 +912,7 @@ namespace MageFollower.Client
                              null,
                              Color.White,
                              1.0f,
-                             Vector2.Zero,
+                             new Vector2(128, 128),
                              1.0f,
                              SpriteEffects.None,
                              0.1f);
@@ -920,7 +952,7 @@ namespace MageFollower.Client
 
             // Draw UI
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
-            _spriteBatch.DrawString(Client.Font, $"Creator Mode: {(_isCreatorModeOn ? "True" : "False")}", new Vector2(10, 10),
+            _spriteBatch.DrawString(Client.Font, $"Creator Mode: {(_isCreatorModeOn ? $"True - Placing: {_itemTpAddOnRightClick:G}" : "False")}", new Vector2(10, 10),
                     Color.White, 0.0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0);
 
             _commandTextBoxUI?.Draw(_spriteBatch);
