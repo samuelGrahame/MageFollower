@@ -13,19 +13,26 @@
 
 #---------------------------------- Content ---------------------------------#
 
-#begin Fonts/SegoeUI.spritefont
+#begin Fonts/Arial.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Compressed
-/build:Fonts/SegoeUI.spritefont
+/build:Fonts/Arial.spritefont
 
-#begin Fonts/SegoeUIBold.spritefont
+#begin Fonts/ArialBold.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Compressed
-/build:Fonts/SegoeUIBold.spritefont
+/build:Fonts/ArialBold.spritefont
+
+#begin Fonts/ArialSmall.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:Fonts/ArialSmall.spritefont
 
 #begin Other/HealthBarBase.png
 /importer:TextureImporter

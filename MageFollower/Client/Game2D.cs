@@ -28,6 +28,7 @@ namespace MageFollower.Client
 
         public SpriteFont Font;
         public SpriteFont FontBold;
+        public SpriteFont FontSmall;
 
         public SpriteFont DefaultFont => Font;
         private string _server;
@@ -92,8 +93,9 @@ namespace MageFollower.Client
 
             _activeGameState?.Load();
 
-            Font = Content.Load<SpriteFont>("Fonts/SegoeUI");
-            FontBold = Content.Load<SpriteFont>("Fonts/SegoeUIBold");
+            Font = Content.Load<SpriteFont>("Fonts/Arial");
+            FontBold = Content.Load<SpriteFont>("Fonts/ArialBold");
+            FontSmall = Content.Load<SpriteFont>("Fonts/ArialSmall");
         }
 
         protected override void Update(GameTime gameTime)

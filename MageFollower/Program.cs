@@ -646,6 +646,24 @@ namespace MageFollower
                                         {
 
                                         }
+                                    }else if(item.StartsWith("DESPAWN:"))
+                                    {
+                                        var itemToSpawn = item.Substring("DESPAWN:".Length, item.Length - "DESPAWN:".Length);
+
+                                        try
+                                        {
+                                            
+                                            var enviormentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn);
+
+                                            if (worldEnviorment.EnviromentItems.TryRemove(enviormentItem.Guid, out enviormentItem))
+                                            {
+                                                dataToSend.Enqueue(($"DESPAWN:{JsonConvert.SerializeObject(enviormentItem)}<EOF>", null));
+                                            }
+                                        }
+                                        catch (Exception)
+                                        {
+
+                                        }
                                     }
                                 }
 

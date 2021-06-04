@@ -374,6 +374,23 @@ namespace MageFollower.Client
                                         }
                                         //dataToSend.Append($"SPAWN:TREE:ME<EOF>");
                                     }
+                                    else if (item.StartsWith("DESPAWN:"))
+                                    {
+                                        var itemToSpawn = item.Substring("DESPAWN:".Length, item.Length - "DESPAWN:".Length);
+
+                                        try
+                                        {
+                                            var enviormentItem = JsonConvert.DeserializeObject<EnviromentItem>(itemToSpawn);
+                                            if (_worldEnviroment.EnviromentItems.TryRemove(enviormentItem.Guid, out enviormentItem))
+                                            {
+                                                
+                                            }
+                                        }
+                                        catch (Exception)
+                                        {
+
+                                        }
+                                    }
                                     else if (item.StartsWith("DEL:"))
                                     {
                                         var idToRemove = item.Substring("DEL:".Length, item.Length - "DEL:".Length);
@@ -422,6 +439,11 @@ namespace MageFollower.Client
             }
         }
 
+
+        private void DeleteElement(EnviromentItem enviromentItem)
+        {
+            _dataToSend.Enqueue($"DESPAWN:{JsonConvert.SerializeObject(enviromentItem, JsonHelper.Config)}<EOF>");
+        }
 
         private void SetTargetOnServer(Entity entity)
         {
@@ -527,7 +549,30 @@ namespace MageFollower.Client
 
                     if (_isCreatorModeOn)
                     {
-                        SpawnItemAtPos(_itemTpAddOnRightClick, worldMousePos); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                        var entities = _worldEnviroment.EnviromentItems.Values;
+                        var clickedOn = entities.Where(o =>
+                            VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList(); // todo get region size . did click on pixel.
+
+                        if (clickedOn != null && clickedOn.Count > 0)
+                        {
+                            if (clickedOn.Count == 0)
+                            {
+                                //SetTargetOnServer(); DEL Target
+                                DeleteElement(clickedOn[0]);
+                            }
+                            else
+                            {
+                                DeleteElement(
+                                    clickedOn.OrderBy(o =>
+                                        Vector2.Distance(o.Position, worldMousePos)).
+                                    FirstOrDefault());
+                            }
+
+                        }
+                        else
+                        {
+                            SpawnItemAtPos(_itemTpAddOnRightClick, worldMousePos); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                        }
                     }
                     else
                     {
@@ -951,9 +996,13 @@ namespace MageFollower.Client
             _spriteBatch.End();
 
             // Draw UI
-            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
-            _spriteBatch.DrawString(Client.Font, $"Creator Mode: {(_isCreatorModeOn ? $"True - Placing: {_itemTpAddOnRightClick:G}" : "False")}", new Vector2(10, 10),
-                    Color.White, 0.0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0);
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp);
+            if(_player != null)
+            {
+                _spriteBatch.DrawString(Client.FontSmall, $"Creator Mode: {(_isCreatorModeOn ? $"True - Placing: {_itemTpAddOnRightClick:G}" : "False")}\r\nX: {_player.Position.X:n2}, Y: {_player.Position.Y:n2}", new Vector2(10, 10),
+                    Color.White, 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0);
+            }
+            
 
             _commandTextBoxUI?.Draw(_spriteBatch);
 
