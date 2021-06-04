@@ -104,12 +104,13 @@ namespace MageFollower.Client
         public override void Load()
         {
             enviromentTextures.Add(
-                EnviromentType.None,
-                null); // allows for get ranged.
-
-            enviromentTextures.Add(
                 EnviromentType.Tree01,
                 Content.Load<Texture2D>("Trees/Tree01"));
+
+
+            projectileTypesTextures.Add(
+                ProjectileTypes.None,
+                null); // allows for get ranged.
 
             projectileTypesTextures.Add(ProjectileTypes.EnergyBall,
                 Content.Load<Texture2D>("Projectiles/EnergyBall01"));

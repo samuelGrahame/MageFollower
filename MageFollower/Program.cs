@@ -592,7 +592,7 @@ namespace MageFollower
                                         {
                                             foreach (var itemToSpawn in worldEnviorment.EnviromentItems)
                                             {
-                                                msg = Encoding.ASCII.GetBytes($"SPAWN:{JsonConvert.SerializeObject(itemToSpawn)}<EOF>");
+                                                msg = Encoding.ASCII.GetBytes($"SPAWN:{JsonConvert.SerializeObject(itemToSpawn.Value)}<EOF>");
                                                 socketToUse.Send(msg);
                                             }
                                         }                                        
