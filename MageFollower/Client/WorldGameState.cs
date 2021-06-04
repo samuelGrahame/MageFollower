@@ -70,7 +70,11 @@ namespace MageFollower.Client
 
         public WorldGameState(Game2D client) : base(client)
         {
-
+            _commandTextBoxUI = new UITextBox(client)
+            {
+                Position = new Vector2(50, 50),
+                Color = Color.White
+            };
         }
 
         public override void Unload()
