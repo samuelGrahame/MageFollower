@@ -51,8 +51,8 @@ namespace MageFollower.Client
         private string _playerId;
         private double _lastTimeSentToServer = 0;
 
-        private Queue<string> _dataToSend = new Queue<string>();
-        private List<FloatingDamageText> _floatingTextList = new List<FloatingDamageText>();
+        private ConcurrentQueue<string> _dataToSend = new();
+        private ConcurrentDictionary<Guid, FloatingDamageText> _floatingTextList = new();
 
         private double _moveLerpTimer = (1000 / 10.0f);
         private double _sendToServerTimer = (1000 / 20.0f);
@@ -184,9 +184,11 @@ namespace MageFollower.Client
                         {
                             if (_dataToSend.Count > 0)
                             {
-                                var dataPack = _dataToSend.Dequeue();
-                                byte[] msg = Encoding.ASCII.GetBytes(dataPack);
-                                _sender.Send(msg);
+                                if(_dataToSend.TryDequeue(out string dataPack))
+                                {                                    
+                                    byte[] msg = Encoding.ASCII.GetBytes(dataPack);
+                                    _sender.Send(msg);
+                                }                                
                             }
                             Thread.Sleep(1);
                         }
@@ -308,7 +310,7 @@ namespace MageFollower.Client
                                             var dmgDone = Math.Round(transform.DamageDone, 2).ToString();
                                             var size = Client.Font.MeasureString(dmgDone) * 0.5f;
 
-                                            _floatingTextList.Add(new FloatingDamageText()
+                                            _floatingTextList.TryAdd(Guid.NewGuid(), new FloatingDamageText()
                                             {
                                                 Text = dmgDone,
                                                 Position = entity.Position - new Vector2(size.X, size.Y),
@@ -338,7 +340,7 @@ namespace MageFollower.Client
                                                 var caption = $"{xpToTarget.Level}: {xpToTarget.Xp} xp";
                                                 var size = Client.Font.MeasureString(caption) * 0.5f;
 
-                                                _floatingTextList.Add(new FloatingDamageText()
+                                                _floatingTextList.TryAdd(Guid.NewGuid(), new FloatingDamageText()
                                                 {
                                                     Text = caption,
                                                     Position = entity.Position - new Vector2(size.X, 150.0f),
@@ -349,7 +351,7 @@ namespace MageFollower.Client
 
 
                                                 size = Client.Font.MeasureString("Leveled Up!") * 0.5f;
-                                                _floatingTextList.Add(new FloatingDamageText()
+                                                _floatingTextList.TryAdd(Guid.NewGuid(), new FloatingDamageText()
                                                 {
                                                     Text = "Leveled Up!",
                                                     Color = Color.Blue,
@@ -737,13 +739,13 @@ namespace MageFollower.Client
                 }
             }
             // TODO: Lock
-            for (int i = _floatingTextList.Count - 1; i >= 0; i--)
+            foreach (var itemPair in _floatingTextList)
             {
-                var item = _floatingTextList[i];
+                var item = itemPair.Value;
                 item.TotalTimeToRemove -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
                 if (item.TotalTimeToRemove <= 0f)
                 {
-                    _floatingTextList.RemoveAt(i);
+                    _floatingTextList.TryRemove(itemPair.Key, out item);
                 }
                 else
                 {
@@ -771,8 +773,6 @@ namespace MageFollower.Client
                         default:
                             break;
                     }
-
-
                 }
             }
 
@@ -806,8 +806,17 @@ namespace MageFollower.Client
                             var time = item.TotalTime == 0.0f ? 0.0f : item.TotalTime / item.ExpireMs;
                             item.CurrentPos = Vector2.LerpPrecise(fromEntity.Position, toEntity.Position, time);
 
-                            Vector2 dPos = item.CurrentPos - toEntity.Position;
-                            item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                            if (item.ProjectileTypes == ProjectileTypes.Arrow)
+                            {
+                                Vector2 dPos = toEntity.Position - item.CurrentPos;
+                                item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                            }else if (item.ProjectileTypes == ProjectileTypes.EnergyBall)
+                            {
+                                //Vector2 dPos = item.CurrentPos - toEntity.Position;
+                                item.Rotation += 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                                item.BonusScale += (float)Math.Sin(gameTime.ElapsedGameTime.TotalSeconds);
+                            }
                         }
                     }
                 }
@@ -916,13 +925,27 @@ namespace MageFollower.Client
                 if (item.ProjectileTypes == ProjectileTypes.None)
                     continue;
                 var textureProjectTile = projectileTypesTextures[item.ProjectileTypes];
+
+                if(item.ProjectileTypes == ProjectileTypes.Arrow)
+                {
+                    _spriteBatch.Draw(textureProjectTile,
+                             item.CurrentPos - new Vector2(15, 15),
+                             null,
+                             new Color(Color.Black, 0.2f),
+                             item.Rotation,
+                             new Vector2(16, 16),
+                             (item.ProjectileTypes == ProjectileTypes.Arrow ? 2f : 1.0f) + item.BonusScale,
+                             SpriteEffects.None,
+                             0.9f);
+                }
+
                 _spriteBatch.Draw(textureProjectTile,
                              item.CurrentPos,
                              null,
                              item.Color,
                              item.Rotation,
                              new Vector2(16, 16),
-                             item.ProjectileTypes == ProjectileTypes.Arrow ? 1.5f : 1.0f,
+                             (item.ProjectileTypes == ProjectileTypes.Arrow ? 2f : 1.0f) + item.BonusScale,
                              SpriteEffects.None,
                              0.9f);
             }
@@ -963,9 +986,10 @@ namespace MageFollower.Client
                              0.1f);
             }
 
-
-            foreach (var item in _floatingTextList)
+            var list = _floatingTextList;
+            foreach (var itemPair in _floatingTextList)
             {
+                var item = itemPair.Value;
                 if (item.DrawColorBackGround)
                 {
                     _spriteBatch.DrawString(Client.FontBold, item.Text, item.Position - new Vector2(1.0f, 1.0f),

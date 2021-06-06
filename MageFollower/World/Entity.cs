@@ -60,6 +60,34 @@ namespace MageFollower.World
             return ProjectileTypes.None;
         }
 
+        public long GetAttackSpeed()
+        {
+            switch (GetProjectTileType())
+            {
+                default:
+                case ProjectileTypes.None:
+                    return 1000;
+                case ProjectileTypes.EnergyBall:
+                    return 2500;
+                case ProjectileTypes.Arrow:
+                    return 700;
+            }
+        }
+
+        public float GetProjectTileSpeed()
+        {
+            switch (GetProjectTileType())
+            {
+                default:
+                case ProjectileTypes.None:
+                    return 0f;
+                case ProjectileTypes.EnergyBall:
+                    return 500.0f;
+                case ProjectileTypes.Arrow:
+                    return 1000f;
+            }
+        }
+
         public float GetAttackRange()
         {
             switch (GetProjectTileType())

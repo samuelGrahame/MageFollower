@@ -35,5 +35,7 @@ namespace MageFollower.PacketData
         public Vector2 CurrentPos;
         [JsonIgnore]
         public float Rotation;
+        [JsonIgnore]
+        public float BonusScale = 0.0f;
     }
 }

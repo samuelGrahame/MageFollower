@@ -201,7 +201,7 @@ namespace MageFollower
                         var preTarget = item.TargetEntity;
                         var distance = Vector2.Distance(item.Position, targetItem.Position);
                         var newProjectTile = new ProjectTile() { 
-                            ExpireMs = (distance / 600.0f) * 1000.0f,
+                            ExpireMs = (distance / item.GetProjectTileSpeed()) * 1000.0f,
                             FromId = item.Id,
                             Guid = Guid.NewGuid(),
                             OnExpire = () => {
@@ -257,7 +257,7 @@ namespace MageFollower
                                     //targetPos = null;
                                     if (item.AttackSleep == 0)
                                     {
-                                        item.AttackSleep = 1000; // 1 second cool down for aa
+                                        item.AttackSleep = item.GetAttackSpeed(); // 1 second cool down for aa
                                         AttackTarget(item, item.TargetEntity);                                        
                                     }
                                 }
@@ -355,7 +355,7 @@ namespace MageFollower
                                     //targetPos = null;
                                     if(item.AttackSleep == 0)
                                     {
-                                        item.AttackSleep = 1000; // 1 second cool down for aa
+                                        item.AttackSleep = item.GetAttackSpeed(); // 1 second cool down for aa
                                         // support ranged attack.
                                         AttackTarget(item, item.TargetEntity);                                        
                                     }
