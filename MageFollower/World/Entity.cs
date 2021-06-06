@@ -70,7 +70,7 @@ namespace MageFollower.World
                 case ProjectileTypes.EnergyBall:
                     return 2500;
                 case ProjectileTypes.Arrow:
-                    return 700;
+                    return 1500;
             }
         }
 
