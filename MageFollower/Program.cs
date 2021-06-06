@@ -626,8 +626,14 @@ namespace MageFollower
                                             };
                                             newEntity.Melee.AddXp(10000);
                                         }
-                                        
 
+                                        newEntity.LeftHand = new World.Items.Item()
+                                        {
+                                            Equipt = World.Items.EquiptType.LeftHand,
+                                            Power = 0.0f,
+                                            Tool = World.Items.ToolType.Axe,
+                                            Type = World.Items.ItemType.Stone_Axe
+                                        };
 
                                         var newPass = createPassword(10);
 

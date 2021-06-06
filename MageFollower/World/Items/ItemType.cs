@@ -8,6 +8,7 @@ namespace MageFollower.World.Items
     {
         Stick,
         Wood_Ring,
-        Wood_Bow
+        Wood_Bow,
+        Stone_Axe
     }
 }
