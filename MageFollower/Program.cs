@@ -243,22 +243,91 @@ namespace MageFollower
                                 if (item.AttackSleep < 0)
                                     item.AttackSleep = 0;
                             }
-                            if (item.TargetEntity == null)
-                                continue;
-                            
-                            if (!item.TargetEntity.IsAlive || !item.IsAlive)
+                            if(item.TaskSleep > 0)
                             {
-                                item.TargetEntity = null;                                
+                                item.TaskSleep -= st.ElapsedMilliseconds;
+                                if (item.TaskSleep < 0)
+                                    item.TaskSleep = 0;
                             }
-                            else
+
+                            if (item.TargetEntity != null)
                             {
-                                if (VectorHelper.AreInRange(item.GetAttackRange(), item.Position, item.TargetEntity.Position))
+                                if (!item.TargetEntity.IsAlive || !item.IsAlive)
+                                {
+                                    item.TargetEntity = null;
+                                }
+                                else
+                                {
+                                    if (VectorHelper.AreInRange(item.GetAttackRange(), item.Position, item.TargetEntity.Position))
+                                    {
+                                        //targetPos = null;
+                                        if (item.AttackSleep == 0)
+                                        {
+                                            item.AttackSleep = item.GetAttackSpeed(); // 1 second cool down for aa
+                                            AttackTarget(item, item.TargetEntity);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // PROCESSED ON CLIENT SO FAR - need to workout how to create smooth lerp. / PROB if we used a fixed game loop.
+                                        //Vector2 dir = item.TargetEntity.Position - item.Position;
+
+                                        //Vector2 dPos = item.Position - item.TargetEntity.Position;
+
+                                        //dir.Normalize();
+                                        //item.Position += dir * item.Speed * (float)st.ElapsedMilliseconds / 1000.0f;
+                                        //item.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+
+                                        //dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
+                                    }
+                                }
+                            }
+                            else if(item.TaskTarget != null)
+                            {
+                                if (VectorHelper.AreInRange(Entity.MeleeRange, item.Position, item.TaskTarget.Position))
                                 {
                                     //targetPos = null;
-                                    if (item.AttackSleep == 0)
+                                    if (item.TaskSleep == 0)
                                     {
-                                        item.AttackSleep = item.GetAttackSpeed(); // 1 second cool down for aa
-                                        AttackTarget(item, item.TargetEntity);                                        
+                                        switch (item.TaskTarget.GetTaskType())
+                                        {
+                                            case TaskType.None:
+                                                break;
+                                            case TaskType.ChopTree:
+                                                item.TaskSleep = 2500;
+
+                                                if (r.Next(1, 100) <= item.Wood_Cutting.Level)
+                                                {
+                                                    // Make Server class and add func
+                                                    item.TaskSleep = 0;
+                                                    item.TaskTarget = null;
+
+                                                    try
+                                                    {
+                                                        if (worldEnviorment.EnviromentItems.TryRemove(item.TaskTarget.Guid, out EnviromentItem enviormentItem))
+                                                        {
+                                                            dataToSend.Enqueue(($"DESPAWN:{JsonConvert.SerializeObject(enviormentItem)}<EOF>", null));
+                                                        }
+                                                    }
+                                                    catch (Exception)
+                                                    {
+
+                                                    }
+                                                    if (item.Wood_Cutting != null)
+                                                    {
+                                                        // TODO: Make Func
+                                                        item.Wood_Cutting.AddXp(100);
+                                                        dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Wood_Cutting), Xp = 100 })}<EOF>", null));
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    // send message failed..
+                                                }
+                                                break;
+                                            default:
+                                                break;
+                                        }
                                     }
                                 }
                                 else
@@ -275,6 +344,8 @@ namespace MageFollower
                                     //dataToSend.Enqueue(($"POS:{item.Id}:{JsonConvert.SerializeObject(new Transform() { Rotation = item.Rotation, Position = item.Position })}<EOF>", null));
                                 }
                             }
+                            
+                            
                         }
 
                         for (int i = listOfProjectTiles.Count - 1; i >= 0; i--)
@@ -610,26 +681,61 @@ namespace MageFollower
                                     }else if(item.StartsWith("TARGET:"))
                                     {
                                         var newTarget = item.Substring("TARGET:".Length, item.Length - "TARGET:".Length);
-                                        var entitiy = SocketToEntity[socketToUse];
+                                        var entity = SocketToEntity[socketToUse];
+
+                                        entity.TaskTarget = null;
 
                                         if (string.CompareOrdinal(newTarget, "NULL") != 0 && idToEntity.ContainsKey(newTarget))
                                         {
                                             var targetEntity = idToEntity[newTarget];
                                             
-                                            if (targetEntity != null && targetEntity != entitiy && targetEntity.IsAlive && entitiy.IsAlive)
+                                            if (targetEntity != null && targetEntity != entity && targetEntity.IsAlive && entity.IsAlive)
                                             {
-                                                entitiy.TargetEntity = targetEntity;
+                                                entity.TargetEntity = targetEntity;
                                             }
                                             else
                                             {
-                                                entitiy.TargetEntity = null;
+                                                entity.TargetEntity = null;
                                             }
                                         }
                                         else
                                         {
-                                            entitiy.TargetEntity = null;
+                                            entity.TargetEntity = null;
                                         }
 
+                                    }else if(item.StartsWith("TASK-TARGET:"))
+                                    {
+                                        var newTarget = item.Substring("TASK-TARGET:".Length, item.Length - "TASK-TARGET:".Length);
+                                        var entity = SocketToEntity[socketToUse];
+                                        var idGuid = Guid.Parse(newTarget);
+
+                                        entity.TargetEntity = null;
+
+                                        if (string.CompareOrdinal(newTarget, "NULL") != 0 && worldEnviorment.EnviromentItems.ContainsKey(idGuid))
+                                        {
+                                            var targetEntity = worldEnviorment.EnviromentItems[idGuid];
+                                            if (targetEntity != null && entity.IsAlive)
+                                            {
+                                                // can Entity interact with enviroment
+                                                if (entity.CanInteractWithEnviroment(targetEntity))
+                                                {
+                                                    entity.TaskTarget = targetEntity;
+                                                }
+                                                else
+                                                {
+                                                    entity.TaskTarget = null;
+                                                }                                                
+                                            }
+                                            else
+                                            {
+                                                entity.TaskTarget = null;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            entity.TaskTarget = null;
+                                        }                            
+                                        // TODO Send Message - can't do for x reason
                                     }
                                     else if (item.StartsWith("SPAWN:"))
                                     {
@@ -663,7 +769,7 @@ namespace MageFollower
                                         catch (Exception)
                                         {
 
-                                        }
+                                        }                                        
                                     }
                                 }
 
@@ -679,6 +785,7 @@ namespace MageFollower
                         {
                             if(SocketToEntity.ContainsKey(socketToUse))
                             {
+                                // TODO MAKE CONCURRENT.
                                 var entityToRemove = SocketToEntity[socketToUse];
 
                                 IdToSocket.Remove(entityToRemove.Id);

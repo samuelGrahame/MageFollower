@@ -18,7 +18,11 @@ namespace MageFollower.World
         [JsonIgnore]
         public Entity TargetEntity;
         [JsonIgnore]
+        public EnviromentItem TaskTarget;
+        [JsonIgnore]
         public long AttackSleep;
+        [JsonIgnore]
+        public long TaskSleep;
 
         [JsonProperty("i0")]
         public string Id;
@@ -68,6 +72,22 @@ namespace MageFollower.World
                 Magic?.Level ?? 0);
         }
 
+        public bool CanInteractWithEnviroment(EnviromentItem enviromentItem)
+        {
+            if (enviromentItem == null)
+                return false;
+
+            switch (enviromentItem.GetTaskType())
+            {
+                default:
+                case TaskType.None:
+                    return false;
+                case TaskType.ChopTree:
+                    return (RightHand?.Tool ?? ToolType.None) == ToolType.Axe ||
+                    (LeftHand?.Tool ?? ToolType.None) == ToolType.Axe;                
+            }            
+        }
+
         public long GetAttackSpeed()
         {
             switch (GetProjectTileType())
@@ -95,14 +115,14 @@ namespace MageFollower.World
                     return 1000f;
             }
         }
-
+        public const float MeleeRange = 75.0f;
         public float GetAttackRange()
         {
             switch (GetProjectTileType())
             {
                 default:
                 case ProjectileTypes.None:
-                    return 75.0f;
+                    return MeleeRange;
                 case ProjectileTypes.EnergyBall:
                     return 600.0f;
                 case ProjectileTypes.Arrow:

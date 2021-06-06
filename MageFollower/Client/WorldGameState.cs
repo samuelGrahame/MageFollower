@@ -46,6 +46,8 @@ namespace MageFollower.Client
         private Entity _targetEntity = null;
         private Matrix _transform;
 
+        private EnviromentItem _taskTarget = null;
+
         private Socket _sender;
         private string _passCode;
         private string _playerId;
@@ -454,6 +456,7 @@ namespace MageFollower.Client
 
             _targetEntity = entity;
             _mousePressScale = 0.0f;
+            _taskTarget = null;
             // TODO: Add Intent / or maybe work out - if foe etc
             if (entity == null)
             {
@@ -465,6 +468,24 @@ namespace MageFollower.Client
             }
 
         }
+
+        private void SetTargetOnEnviroment(EnviromentItem enviromentItem)
+        {            
+            _targetEntity = null;
+            _mousePressScale = 0.0f;
+            _taskTarget = enviromentItem;
+            // TODO: Add Intent / or maybe work out - if foe etc
+            if (enviromentItem == null)
+            {
+                _dataToSend.Enqueue($"TASK-TARGET:NULL<EOF>");
+            }
+            else
+            {
+                _dataToSend.Enqueue($"TASK-TARGET:{enviromentItem.Guid}<EOF>");
+            }
+
+        }
+
         private void SpawnItemAtPos(EnviromentType type, Vector2 pos)
         {
             _dataToSend.Enqueue($"SPAWN:{JsonConvert.SerializeObject(new EnviromentItem() { Position = pos, ItemType = type }, JsonHelper.Config)}<EOF>");
@@ -503,6 +524,54 @@ namespace MageFollower.Client
                 }
                 
             }
+        }
+
+        private EnviromentItem GetEnviromentItemFromMouse(Vector2 worldMousePos)
+        {
+            var entities = _worldEnviroment.EnviromentItems.Values;
+            var clickedOn = entities.Where(o =>
+                VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList(); // todo get region size . did click on pixel.
+
+            if (clickedOn != null && clickedOn.Count > 0)
+            {
+                if (clickedOn.Count == 0)
+                {                    
+                    return clickedOn[0];
+                }
+                else
+                {
+                    return 
+                        clickedOn.OrderBy(o =>
+                            Vector2.Distance(o.Position, worldMousePos)).
+                        FirstOrDefault();
+                }
+
+            }
+            return null;
+        }
+
+        private Entity GetEntityFromMouse(Vector2 worldMousePos)
+        {
+            var entities = _entitiesById.Values;
+            var clickedOn = entities.Where(o =>
+                o != _player && VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList();
+
+            if (clickedOn != null && clickedOn.Count > 0)
+            {
+                if (clickedOn.Count == 0)
+                {
+                    return clickedOn[0];
+                }
+                else
+                {
+
+                    return clickedOn.OrderBy(o =>
+                        Vector2.Distance(o.Position, worldMousePos)).
+                    FirstOrDefault();
+                }
+            }
+
+            return null;
         }
 
         public override void Update(GameTime gameTime)
@@ -550,25 +619,12 @@ namespace MageFollower.Client
                     // TODO CHECK UI First.
 
                     if (_isCreatorModeOn)
-                    {
-                        var entities = _worldEnviroment.EnviromentItems.Values;
-                        var clickedOn = entities.Where(o =>
-                            VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList(); // todo get region size . did click on pixel.
+                    {                        
+                        var clickedOn = GetEnviromentItemFromMouse(worldMousePos);
 
-                        if (clickedOn != null && clickedOn.Count > 0)
+                        if (clickedOn != null)
                         {
-                            if (clickedOn.Count == 0)
-                            {
-                                //SetTargetOnServer(); DEL Target
-                                DeleteElement(clickedOn[0]);
-                            }
-                            else
-                            {
-                                DeleteElement(
-                                    clickedOn.OrderBy(o =>
-                                        Vector2.Distance(o.Position, worldMousePos)).
-                                    FirstOrDefault());
-                            }
+                            DeleteElement(clickedOn);
 
                         }
                         else
@@ -578,26 +634,21 @@ namespace MageFollower.Client
                     }
                     else
                     {
-                        // TODO Have Physics engine do a ray cast. just do hard working loop.                        
-                        var entities = _entitiesById.Values;
-                        var clickedOn = entities.Where(o =>
-                            o != _player && VectorHelper.AreInRange(128.0f, o.Position, worldMousePos))?.ToList();
-
-                        if (clickedOn != null && clickedOn.Count > 0)
+                        var clickedOn = GetEntityFromMouse(worldMousePos);
+                        if(clickedOn != null)
                         {
-                            if (clickedOn.Count == 0)
-                            {
-                                SetTargetOnServer(clickedOn[0]);
-                            }
-                            else
-                            {
-                                SetTargetOnServer(
-                                    clickedOn.OrderBy(o =>
-                                        Vector2.Distance(o.Position, worldMousePos)).
-                                    FirstOrDefault());
-                            }
-
+                            SetTargetOnServer(clickedOn);
                         }
+                        else
+                        {
+                            var clickedOnEnviroment = GetEnviromentItemFromMouse(worldMousePos);
+                            if(clickedOnEnviroment != null)
+                            {
+                                SetTargetOnEnviroment(clickedOnEnviroment);
+                            }
+                        }
+                        
+                        // TODO Have Physics engine do a ray cast. just do hard working loop.                        
                     }
                 }
 
@@ -639,6 +690,22 @@ namespace MageFollower.Client
                         }
                     }
                     // DO NOT WALK IF IN RANGE.
+                }
+
+                if(_taskTarget != null)
+                {
+                    if(_worldEnviroment.EnviromentItems.ContainsKey(_taskTarget.Guid)){
+                        _targetPos = _targetEntity.Position;
+                        if (VectorHelper.AreInRange(Entity.MeleeRange, _player.Position, _targetEntity.Position))
+                        {
+                            _targetPos = null;
+                        }
+                    }
+                    else
+                    {
+                        _taskTarget = null;
+                        SetTargetOnEnviroment(null);
+                    }
                 }
 
                 //if (Vector2.Zero != vectorToMove)
@@ -975,7 +1042,21 @@ namespace MageFollower.Client
                  SpriteEffects.None,
                  0.2f);
 
-                _spriteBatch.Draw(texture,
+                if(_taskTarget == item)
+                {
+                    _spriteBatch.Draw(texture,
+                             item.Position,
+                             null,
+                             new Color(Color.White, 0.4f),
+                             1.0f,
+                             new Vector2(128, 128),
+                             1.0f,
+                             SpriteEffects.None,
+                             0.1f);
+                }
+                else
+                {
+                    _spriteBatch.Draw(texture,
                              item.Position,
                              null,
                              Color.White,
@@ -984,6 +1065,8 @@ namespace MageFollower.Client
                              1.0f,
                              SpriteEffects.None,
                              0.1f);
+                }
+                
             }
 
             var list = _floatingTextList;

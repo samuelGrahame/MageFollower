@@ -9,5 +9,6 @@ namespace MageFollower.World.Items
         public EquiptType Equipt;
         public ItemType Type;
         public double Power;
+        public ToolType Tool;
     }
 }

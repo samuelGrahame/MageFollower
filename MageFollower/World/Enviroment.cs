@@ -29,6 +29,22 @@ namespace MageFollower.World
         public EnviromentType ItemType;
         public Vector2 Position;
         public Guid Guid;
+
+        public TaskType GetTaskType()
+        {
+            // TODO Add Dictinary of task types per item.
+            if(ItemType == EnviromentType.Tree01 || ItemType == EnviromentType.Tree02)
+            {
+                return TaskType.ChopTree;
+            }
+            return TaskType.None;
+        }        
+    }
+
+    public enum TaskType
+    {
+        None,
+        ChopTree
     }
 
     public enum EnviromentType
