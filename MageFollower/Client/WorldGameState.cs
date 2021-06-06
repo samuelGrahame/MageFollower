@@ -889,7 +889,7 @@ namespace MageFollower.Client
                 // TO DO ON NAME CHANGE?
                 var titleName = item.IsAlive ? item.Name : $"[GHOST]{item.Name}";
 
-                titleName = $"{item.Melee.Level}) {titleName}";
+                titleName = $"{item.GetMaxLevel()}) {titleName}";
 
                 Vector2 size = Client.Font.MeasureString(titleName);
                 Vector2 origin = size * 0.5f;

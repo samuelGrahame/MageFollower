@@ -60,6 +60,14 @@ namespace MageFollower.World
             return ProjectileTypes.None;
         }
 
+        public int GetMaxLevel()
+        {
+            return Math.Max(
+                Math.Max(Melee?.Level ?? 0, 
+                Ranged?.Level ?? 0), 
+                Magic?.Level ?? 0);
+        }
+
         public long GetAttackSpeed()
         {
             switch (GetProjectTileType())
