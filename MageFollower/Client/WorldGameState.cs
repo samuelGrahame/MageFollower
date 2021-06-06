@@ -337,7 +337,7 @@ namespace MageFollower.Client
                                         {
                                             var entity = _entitiesById[id];
 
-                                            if (entity.AddXpToSkill(xpToTarget))
+                                            if (entity.AddXpToSkill(xpToTarget, out bool didLevelUp))
                                             {
                                                 var caption = $"{xpToTarget.Level}: {xpToTarget.Xp} xp";
                                                 var size = Client.Font.MeasureString(caption) * 0.5f;
@@ -351,16 +351,18 @@ namespace MageFollower.Client
                                                     StartingTime = 2000.0f
                                                 });
 
-
-                                                size = Client.Font.MeasureString("Leveled Up!") * 0.5f;
-                                                _floatingTextList.TryAdd(Guid.NewGuid(), new FloatingDamageText()
+                                                if(didLevelUp)
                                                 {
-                                                    Text = "Leveled Up!",
-                                                    Color = Color.Blue,
-                                                    TotalTimeToRemove = 2000.0f,
-                                                    StartingTime = 2000.0f,
-                                                    Position = entity.Position - new Vector2(size.X, 170.0f)
-                                                });
+                                                    size = Client.Font.MeasureString("Leveled Up!") * 0.5f;
+                                                    _floatingTextList.TryAdd(Guid.NewGuid(), new FloatingDamageText()
+                                                    {
+                                                        Text = "Leveled Up!",
+                                                        Color = Color.Blue,
+                                                        TotalTimeToRemove = 2000.0f,
+                                                        StartingTime = 2000.0f,
+                                                        Position = entity.Position - new Vector2(size.X, 170.0f)
+                                                    });
+                                                }                                                
                                             }
                                         }
                                     }
@@ -669,7 +671,10 @@ namespace MageFollower.Client
                     {
                         SetTargetOnServer(null);
                     }
-
+                    if(_taskTarget != null)
+                    {
+                        SetTargetOnEnviroment(null);
+                    }
                     _mousePressScale = 1.0f;
                 }
 
@@ -695,8 +700,8 @@ namespace MageFollower.Client
                 if(_taskTarget != null)
                 {
                     if(_worldEnviroment.EnviromentItems.ContainsKey(_taskTarget.Guid)){
-                        _targetPos = _targetEntity.Position;
-                        if (VectorHelper.AreInRange(Entity.MeleeRange, _player.Position, _targetEntity.Position))
+                        _targetPos = _taskTarget.Position;
+                        if (VectorHelper.AreInRange(Entity.MeleeRange, _player.Position, _taskTarget.Position))
                         {
                             _targetPos = null;
                         }
@@ -742,7 +747,7 @@ namespace MageFollower.Client
 
                 if (_targetPos == null)
                 {
-                    if (_targetEntity == null)
+                    if (_targetEntity == null && _taskTarget == null)
                     {
                         if (Client.IsActive)
                         {
@@ -753,8 +758,17 @@ namespace MageFollower.Client
                     }
                     else
                     {
-                        Vector2 dPos = _player.Position - _targetEntity.Position;
-                        _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        if (_taskTarget != null)
+                        {
+                            Vector2 dPos = _player.Position - _taskTarget.Position;
+                            _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        }
+                        else
+                        {
+                            Vector2 dPos = _player.Position - _targetEntity.Position;
+                            _player.Rotation = (float)Math.Atan2(dPos.Y, dPos.X);
+                        }
+                        
                     }
 
                 }

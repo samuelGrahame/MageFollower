@@ -296,11 +296,10 @@ namespace MageFollower
                                             case TaskType.ChopTree:
                                                 item.TaskSleep = 2500;
 
-                                                if (r.Next(1, 100) <= item.Wood_Cutting.Level)
+                                                if (r.Next(1, 4) == 1)
                                                 {
                                                     // Make Server class and add func
-                                                    item.TaskSleep = 0;
-                                                    item.TaskTarget = null;
+                                                    
 
                                                     try
                                                     {
@@ -319,6 +318,8 @@ namespace MageFollower
                                                         item.Wood_Cutting.AddXp(100);
                                                         dataToSend.Enqueue(($"ADDXP:{item.Id}:{JsonConvert.SerializeObject(new XpToTarget() { Level = nameof(item.Wood_Cutting), Xp = 100 })}<EOF>", null));
                                                     }
+                                                    item.TaskSleep = 0;
+                                                    item.TaskTarget = null;
                                                 }
                                                 else
                                                 {
@@ -713,11 +714,11 @@ namespace MageFollower
                                     {
                                         var newTarget = item.Substring("TASK-TARGET:".Length, item.Length - "TASK-TARGET:".Length);
                                         var entity = SocketToEntity[socketToUse];
-                                        var idGuid = Guid.Parse(newTarget);
-
+                                        Guid idGuid = Guid.Empty;
+                                        
                                         entity.TargetEntity = null;
 
-                                        if (string.CompareOrdinal(newTarget, "NULL") != 0 && worldEnviorment.EnviromentItems.ContainsKey(idGuid))
+                                        if (string.CompareOrdinal(newTarget, "NULL") != 0 && Guid.TryParse(newTarget, out idGuid) && worldEnviorment.EnviromentItems.ContainsKey(idGuid))
                                         {
                                             var targetEntity = worldEnviorment.EnviromentItems[idGuid];
                                             if (targetEntity != null && entity.IsAlive)
@@ -783,7 +784,7 @@ namespace MageFollower
                             }
 
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
 
                         }
