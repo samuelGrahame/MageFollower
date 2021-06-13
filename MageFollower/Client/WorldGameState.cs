@@ -1,9 +1,11 @@
-﻿using MageFollower.PacketData;
+﻿using MageFollower.Creator;
+using MageFollower.PacketData;
 using MageFollower.Particle;
 using MageFollower.Projectiles;
 using MageFollower.UI;
 using MageFollower.Utilities;
 using MageFollower.World;
+using MageFollower.World.BackgroundTile;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -33,7 +35,7 @@ namespace MageFollower.Client
 
         private float _nintyRadius = 90.0f * (float)Math.PI / 180.0f; // (float)Math.PI; // x*pi/180
         private float _worldRotation = 0.0f;
-        private float _worldZoom = 0.5f;
+        public float WorldZoom = 1f;
         private float _mousePressScale = 0.0f;
         private Entity _player;
         //private List<Entity> _entities;
@@ -61,14 +63,21 @@ namespace MageFollower.Client
         private Vector2 _prevPos;
         private float _prevRotation;
         private EnviromentType _itemTpAddOnRightClick = EnviromentType.Tree01;
-        private bool _isCreatorModeOn = false;
         
+        private EditingMode _mode = EditingMode.None;
+        private bool _isMouseDown = false;
+        private Vector2 _mouseDownStart;
+
         public UIBase FocusedControl = null;
         private UITextBox _commandTextBoxUI;
 
         private string _server;
 
         private bool stopGameLoop = false;
+
+        private Texture2D _backgroundTest = null;
+
+        private BackgroundDisplayTile _backgroundDisplayTile = null;
 
         public WorldGameState(Game2D client) : base(client)
         {
@@ -101,7 +110,7 @@ namespace MageFollower.Client
             _transform =       // Thanks to o KB o for this solution
               Matrix.CreateTranslation(new Vector3(-playerPos.X, -playerPos.Y, 0)) *
                                          Matrix.CreateRotationZ(_worldRotation) *
-                                         Matrix.CreateScale(new Vector3(_worldZoom, _worldZoom, 1)) *
+                                         Matrix.CreateScale(new Vector3(WorldZoom, WorldZoom, 1)) *
                                          Matrix.CreateTranslation(new Vector3(graphicsDevice.Viewport.Width * 0.5f,
                                          graphicsDevice.Viewport.Height * 0.5f, 0));
             return _transform;
@@ -133,6 +142,8 @@ namespace MageFollower.Client
             _targetCircle = Content.Load<Texture2D>("Other/TargetCircle");
 
             _healthBarBase = Content.Load<Texture2D>("Other/HealthBarBase");
+
+            _backgroundDisplayTile = new BackgroundDisplayTile(this);
 
             StartClient();
         }
@@ -502,7 +513,7 @@ namespace MageFollower.Client
 
         private static Array _enviromentTypes = Enum.GetValues(typeof(EnviromentType));
 
-        private void processGodModeKeyPress()
+        private void processPlacingEnviromentKeyPress()
         {
             if(Input.IsKeyPressed(Keys.Up))
             {
@@ -617,51 +628,136 @@ namespace MageFollower.Client
 
                 if (Input.MouseState.RightButton == ButtonState.Pressed && Input.PrevMouseState.RightButton == ButtonState.Released)
                 {
+                    _isMouseDown = true;
+                    // Mouse Down
                     var worldMousePos = GetMouseWorldPos(Input.MouseState);
                     // TODO CHECK UI First.
-
-                    if (_isCreatorModeOn)
-                    {                        
-                        var clickedOn = GetEnviromentItemFromMouse(worldMousePos);
-
-                        if (clickedOn != null)
-                        {
-                            DeleteElement(clickedOn);
-
-                        }
-                        else
-                        {
-                            SpawnItemAtPos(_itemTpAddOnRightClick, worldMousePos); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
-                        }
-                    }
-                    else
+                    switch (_mode)
                     {
-                        var clickedOn = GetEntityFromMouse(worldMousePos);
-                        if(clickedOn != null)
-                        {
-                            SetTargetOnServer(clickedOn);
-                        }
-                        else
-                        {
-                            var clickedOnEnviroment = GetEnviromentItemFromMouse(worldMousePos);
-                            if(clickedOnEnviroment != null)
+                        case EditingMode.None:
+                            var clickedOn = GetEntityFromMouse(worldMousePos);
+                            if (clickedOn != null)
                             {
-                                SetTargetOnEnviroment(clickedOnEnviroment);
+                                SetTargetOnServer(clickedOn);
                             }
+                            else
+                            {
+                                var clickedOnEnviroment = GetEnviromentItemFromMouse(worldMousePos);
+                                if (clickedOnEnviroment != null)
+                                {
+                                    SetTargetOnEnviroment(clickedOnEnviroment);
+                                }
+                            }
+
+                            // TODO Have Physics engine do a ray cast. just do hard working loop. 
+                            break;
+                        case EditingMode.PlacingTerrain:
+                            var clickedOnTerrain = GetEnviromentItemFromMouse(worldMousePos);
+
+                            if (clickedOnTerrain != null)
+                            {
+                                DeleteElement(clickedOnTerrain);
+
+                            }
+                            else
+                            {
+                                SpawnItemAtPos(_itemTpAddOnRightClick, worldMousePos); //Player.AttackTarget(Player, 10.0f * (float)gameTime.ElapsedGameTime.TotalSeconds);
+                            }
+                            break;
+                        case EditingMode.DrawBackground:
+
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                else if (Input.MouseState.RightButton == ButtonState.Released && Input.PrevMouseState.RightButton == ButtonState.Pressed)
+                {
+                    // Mouse Up
+                    _isMouseDown = false;
+                }
+                else
+                {
+                    // Move Move
+                    if(_isMouseDown)
+                    {
+                        if(_mode == EditingMode.DrawBackground)
+                        {
+                            var currentWorldPos = GetMouseWorldPos(Input.MouseState);
+                            var prevWorldPos = GetMouseWorldPos(Input.PrevMouseState);
+
+                            var point1 = new Point((int)currentWorldPos.X, (int)currentWorldPos.Y);
+                            var point2 = new Point((int)prevWorldPos.X, (int)prevWorldPos.Y);
+
+                            // what we need to do is get 
+                            var backgroundTilesToEdit = _backgroundDisplayTile.GetTexturesFromTwoPoints(
+                                point1,
+                                point2);
+
+                            if(backgroundTilesToEdit != null && backgroundTilesToEdit.Count > 0)
+                            {
+                                foreach (var item in backgroundTilesToEdit)
+                                {
+                                    var pixels = Texture2DHelper.GetPixels(item.Texture);
+
+                                    var fromX = point1.X - item.Index.X;
+                                    var toX = point2.X - item.Index.X;
+
+                                    var fromY = point1.Y - item.Index.Y;
+                                    var toY = point2.Y - item.Index.Y;
+
+                                    Texture2DHelper.DrawThickLineSimple(ref pixels, item.Texture.Width,
+                                            item.Texture.Height,
+                                            fromX, fromY,
+                                            toX, toY,
+                                            5, Texture2DHelper.LINE_THICKNESS_MIDDLE, new Color(Color.Black, 0.5f));
+
+                                    //for (int i = -5; i < 10; i++)
+                                    //{
+                                    //    Texture2DHelper.DrawLine(ref pixels,
+                                    //        item.Texture.Width,
+                                    //        item.Texture.Height,
+                                    //        fromX + i, fromY + i,
+                                    //        toX + i, toY + i,
+                                    //        Color.Black);
+                                    //}
+
+                                    //Texture2DHelper.DrawLine(ref pixels,
+                                    //    item.Texture.Width,
+                                    //    item.Texture.Height,
+                                    //    point1.X - item.Index.X, point1.Y - item.Index.Y,
+                                    //    point2.X - item.Index.X, point2.Y - item.Index.Y,
+                                    //    Color.Black);
+
+                                    item.Texture.SetData(pixels);
+
+                                    //_backgroundDisplayTile.SetTextureFromIndex(item.Index, item.Texture);
+                                    // DO WE NEED TO SET PIXEL? TO TILE MASTER OR JUST HERE
+                                }
+                            }   
                         }
-                        
-                        // TODO Have Physics engine do a ray cast. just do hard working loop.                        
                     }
                 }
 
                 if (Input.PrevKeyboardState.IsKeyUp(Keys.G) && Input.KeyboardState.IsKeyDown(Keys.G))
                 {
-                    _isCreatorModeOn = !_isCreatorModeOn;
+                    switch (_mode)
+                    {
+                        case EditingMode.None:
+                            _mode = EditingMode.PlacingTerrain;
+                            break;
+                        case EditingMode.PlacingTerrain:
+                            _mode = EditingMode.DrawBackground;
+                            break;
+                        case EditingMode.DrawBackground:
+                            _mode = EditingMode.None;
+                            break;                        
+                    }                    
                 }
 
-                if (_isCreatorModeOn)
+                if (_mode == EditingMode.PlacingTerrain)
                 {
-                    processGodModeKeyPress();
+                    processPlacingEnviromentKeyPress();
                 }
 
                 if (Input.MouseState.LeftButton == ButtonState.Pressed)
@@ -789,12 +885,12 @@ namespace MageFollower.Client
 
             if (Input.PrevMouseState.ScrollWheelValue != Input.MouseState.ScrollWheelValue)
             {
-                _worldZoom += (Input.MouseState.ScrollWheelValue - Input.PrevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+                WorldZoom += (Input.MouseState.ScrollWheelValue - Input.PrevMouseState.ScrollWheelValue) * 0.1f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-                if (_worldZoom > 2)
-                    _worldZoom = 2;
-                if (_worldZoom < 0.5f)
-                    _worldZoom = 0.5f;
+                if (WorldZoom > 2)
+                    WorldZoom = 2;
+                if (WorldZoom < 0.5f)
+                    WorldZoom = 0.5f;
 
             }
             foreach (var itemPair in _entitiesById)
@@ -908,12 +1004,30 @@ namespace MageFollower.Client
         {
             Client.GraphicsDevice.Clear(Color.DarkGreen);
 
+            _spriteBatch.Begin(SpriteSortMode.Immediate,
+                BlendState.AlphaBlend,
+                SamplerState.PointClamp,
+                null, null, null, get_transformation(Client.GraphicsDevice));
+
+            var listToDraw = _backgroundDisplayTile.GetTilesForPlayer(_player);
+            if (listToDraw != null)
+            {
+                foreach (var item in listToDraw)
+                {
+                    _spriteBatch.Draw(item.Value, new Vector2(item.Key.X, item.Key.Y), Color.White);
+                }
+            }
+
+            _spriteBatch.End();
             _spriteBatch.Begin(SpriteSortMode.Deferred,
                 BlendState.AlphaBlend,
                 SamplerState.AnisotropicClamp,
                 null, null, null, get_transformation(Client.GraphicsDevice));
 
+
             // _spriteBatch.Draw(person01, playerPos, Color.White);
+
+
             foreach (var itemPair in _entitiesById)
             {
                 var item = itemPair.Value;
@@ -1120,7 +1234,25 @@ namespace MageFollower.Client
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.AnisotropicClamp);
             if(_player != null)
             {
-                _spriteBatch.DrawString(Client.FontSmall, $"Creator Mode: {(_isCreatorModeOn ? $"True - Placing: {_itemTpAddOnRightClick:G}" : "False")}\r\nX: {_player.Position.X:n2}, Y: {_player.Position.Y:n2}", new Vector2(10, 10),
+
+                string modeDesc = "Mode: ";
+
+                switch (_mode)
+                {
+                    case EditingMode.None:
+                        modeDesc = "Mode: Game";
+                        break;
+                    case EditingMode.PlacingTerrain:
+                        modeDesc = $"Mode: Placing: {_itemTpAddOnRightClick:G}";
+                        break;
+                    case EditingMode.DrawBackground:
+                        modeDesc = "Mode: Drawing Background";
+                        break;
+                    default:
+                        break;
+                }
+
+                _spriteBatch.DrawString(Client.FontSmall, $"Creator Mode: {modeDesc}\r\nX: {_player.Position.X:n2}, Y: {_player.Position.Y:n2}\r\nFPS: {MathF.Round((float)(1.0f / gameTime.ElapsedGameTime.TotalSeconds), 2)}", new Vector2(10, 10),
                     Color.White, 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0);
             }
             

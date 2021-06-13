@@ -352,6 +352,12 @@ namespace MageFollower
                         for (int i = listOfProjectTiles.Count - 1; i >= 0; i--)
                         {
                             var item = listOfProjectTiles[i];
+                            if (item == null)
+                            {
+                                listOfProjectTiles.RemoveAt(i);
+                                continue;
+                            }
+                                
 
                             item.ExpireMs -= st.ElapsedMilliseconds;
                             if(item.ExpireMs <= 0)

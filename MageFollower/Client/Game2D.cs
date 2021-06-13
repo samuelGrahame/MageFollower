@@ -1,4 +1,5 @@
-﻿using MageFollower.PacketData;
+﻿using MageFollower.Creator;
+using MageFollower.PacketData;
 using MageFollower.Particle;
 using MageFollower.Projectiles;
 using MageFollower.UI;
@@ -88,6 +89,11 @@ namespace MageFollower.Client
         }
         protected override void LoadContent()
         {
+            _graphics.PreferredBackBufferWidth = 1920;
+            _graphics.PreferredBackBufferHeight = 1010;
+            _graphics.IsFullScreen = false;
+            _graphics.ApplyChanges();
+
             IsMouseVisible = true;
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
@@ -101,7 +107,7 @@ namespace MageFollower.Client
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
+                UnloadContent();
 
             Input.MouseState = Mouse.GetState();
             Input.KeyboardState = Keyboard.GetState();
