@@ -38,6 +38,8 @@ namespace MageFollower.Client
 
         private GameState _activeGameState = null;
 
+        public GameState ActiveGameState => _activeGameState;
+
         public Game2D(string server = "")
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -97,11 +99,11 @@ namespace MageFollower.Client
             IsMouseVisible = true;
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            _activeGameState?.Load();
-
             Font = Content.Load<SpriteFont>("Fonts/Arial");
             FontBold = Content.Load<SpriteFont>("Fonts/ArialBold");
             FontSmall = Content.Load<SpriteFont>("Fonts/ArialSmall");
+
+            _activeGameState?.Load();
         }
 
         protected override void Update(GameTime gameTime)

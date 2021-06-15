@@ -25,6 +25,11 @@ namespace MageFollower.UI
             return KeyboardState.IsKeyDown(key) && PrevKeyboardState.IsKeyUp(key);
         }
 
+        public bool IsLeftMousePressed()
+        {
+            return MouseState.LeftButton == ButtonState.Pressed && PrevMouseState.LeftButton == ButtonState.Released;
+        }
+
         /// <summary>
         /// Check after key is pressed.
         /// </summary>

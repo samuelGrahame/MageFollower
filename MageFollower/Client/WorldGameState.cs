@@ -68,24 +68,19 @@ namespace MageFollower.Client
         private bool _isMouseDown = false;
         private Vector2 _mouseDownStart;
 
-        public UIBase FocusedControl = null;
         private UITextBox _commandTextBoxUI;
+        private UIColorPicker _chooseColorDrawMode;
 
         private string _server;
 
         private bool stopGameLoop = false;
 
-        private Texture2D _backgroundTest = null;
-
+        // TODO CREATE DRAWING LAYER WHILE DRAWING then Join to Mesh after Moue Up... allows for blend layer...
         private BackgroundDisplayTile _backgroundDisplayTile = null;
 
         public WorldGameState(Game2D client) : base(client)
         {
-            _commandTextBoxUI = new UITextBox(client)
-            {
-                Position = new Vector2(50, 50),
-                Color = Color.White
-            };
+            
         }
 
         public override void Unload()
@@ -118,6 +113,33 @@ namespace MageFollower.Client
 
         public override void Load()
         {
+            Container = new UIContainer(this.Client);
+            Container.Children.Add(_commandTextBoxUI = new UITextBox(base.Client)
+            {
+                Position = new Vector2(10, 65),
+                Color = Color.White,
+                FontScale = 1.0f,
+                Font = Client.FontSmall
+            });
+
+            Container.Children.Add(_chooseColorDrawMode = new UIColorPicker(base.Client)
+            {
+                Position = new Vector2(10, 85),
+                Hidden = true,
+                MouseDownMoved = (sender, input) => {
+                    if (_mode != EditingMode.DrawBackground)
+                        return;
+
+                    var textureToGetPixelFrom = sender.Texture;
+                    if (textureToGetPixelFrom == null)
+                        return;
+                    var pixelIndex = input.MouseState.Position - sender.GetGlobalLocation().ToPoint();
+                    var pixels = Creator.Texture2DHelper.GetPixels(textureToGetPixelFrom);
+                    DrawColor = Texture2DHelper.GetPixel(ref pixels, pixelIndex.X, pixelIndex.Y, textureToGetPixelFrom.Width);
+                }
+            });
+            //_chooseColorDrawMode
+
             enviromentTextures.Add(
                 EnviromentType.Tree01,
                 Content.Load<Texture2D>("Trees/Tree01"));
@@ -587,9 +609,63 @@ namespace MageFollower.Client
             return null;
         }
 
+        public Color DrawColor = Color.Black;
+        public int Thickness = 0;
+        public void PrcessTextCommand(string command)
+        {
+            try
+            {
+                if (command.ToLower().StartsWith("setcolor:"))
+                {
+                    var args = command.Split(':');
+                    if (args.Length > 1)
+                    {
+                        if (args[1].Contains(","))
+                        {
+                            args = args[1].Split(',');
+                            if (args.Length == 3)
+                            {
+                                DrawColor = new Color(
+                                    int.Parse(args[0].Trim()),
+                                    int.Parse(args[1].Trim()),
+                                    int.Parse(args[2].Trim()));
+                            }
+                            else if (args.Length == 4)
+                            {
+                                DrawColor = new Color(
+                                    int.Parse(args[0].Trim()),
+                                    int.Parse(args[1].Trim()),
+                                    int.Parse(args[2].Trim()), int.Parse(args[3].Trim()));
+                            }
+                        }
+                    }
+                }else if (command.ToLower().StartsWith("setpen:"))
+                {
+                    var args = command.Split(':');
+                    if (args.Length > 1)
+                    {
+                        Thickness = int.Parse(args[1].Trim());
+                        if (Thickness < 0)
+                            Thickness = 0;
+                        if (Thickness > 50)
+                            Thickness = 50;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+            
+        }
+
         public override void Update(GameTime gameTime)
-        {                        
+        {
             // test
+            base.Update(gameTime);
+
+            base.Container?.Update(Input);
+
             if (_player != null)
             {
                 //Vector2 vectorToMove = Vector2.Zero;
@@ -612,17 +688,18 @@ namespace MageFollower.Client
                 if (Input.IsKeyPressed(Keys.Enter))
                 {
                     if (FocusedControl == null)
-                    {
-                        FocusedControl = _commandTextBoxUI;
+                    {                        
+                        SetFocusedControl(_commandTextBoxUI);
                     }
                     else
                     {
                         if (FocusedControl == _commandTextBoxUI)
                         {
+                            PrcessTextCommand(_commandTextBoxUI.Text);
                             _commandTextBoxUI.Text = "";
                         }
-                        // allows override?
-                        FocusedControl = null;
+                        // allows override?                        
+                        SetFocusedControl(null);
                     }
                 }
 
@@ -688,29 +765,45 @@ namespace MageFollower.Client
 
                             var point1 = new Point((int)currentWorldPos.X, (int)currentWorldPos.Y);
                             var point2 = new Point((int)prevWorldPos.X, (int)prevWorldPos.Y);
-
+                            
                             // what we need to do is get 
                             var backgroundTilesToEdit = _backgroundDisplayTile.GetTexturesFromTwoPoints(
                                 point1,
-                                point2);
+                                point2, Thickness);
 
                             if(backgroundTilesToEdit != null && backgroundTilesToEdit.Count > 0)
                             {
                                 foreach (var item in backgroundTilesToEdit)
-                                {
-                                    var pixels = Texture2DHelper.GetPixels(item.Texture);
-
+                                {                                    
+                                    Texture2DHelper.GetPixels(item.Texture, ref BackgroundDisplayTile.ImageCache);
                                     var fromX = point1.X - item.Index.X;
                                     var toX = point2.X - item.Index.X;
 
                                     var fromY = point1.Y - item.Index.Y;
                                     var toY = point2.Y - item.Index.Y;
 
-                                    Texture2DHelper.DrawThickLineSimple(ref pixels, item.Texture.Width,
+                                    if(Thickness == 0)
+                                    {
+                                        Texture2DHelper.DrawLine(ref BackgroundDisplayTile.ImageCache, item.Texture.Width,
+                                            item.Texture.Height,
+                                            fromX, fromY,
+                                            toX, toY, DrawColor);
+                                    }
+                                    else
+                                    {
+                                        Texture2DHelper.DrawLineWithCircles(ref BackgroundDisplayTile.ImageCache, item.Texture.Width,
                                             item.Texture.Height,
                                             fromX, fromY,
                                             toX, toY,
-                                            5, Texture2DHelper.LINE_THICKNESS_MIDDLE, new Color(Color.Black, 0.5f));
+                                            Thickness, DrawColor);
+                                    }
+                                    
+
+                                    //Texture2DHelper.DrawThickLineSimple(ref BackgroundDisplayTile.ImageCache, item.Texture.Width,
+                                    //        item.Texture.Height,
+                                    //        fromX, fromY,
+                                    //        toX, toY,
+                                    //        50, Texture2DHelper.LINE_THICKNESS_MIDDLE, new Color(Color.Black, 0.5f));
 
                                     //for (int i = -5; i < 10; i++)
                                     //{
@@ -729,7 +822,7 @@ namespace MageFollower.Client
                                     //    point2.X - item.Index.X, point2.Y - item.Index.Y,
                                     //    Color.Black);
 
-                                    item.Texture.SetData(pixels);
+                                    item.Texture.SetData(BackgroundDisplayTile.ImageCache);
 
                                     //_backgroundDisplayTile.SetTextureFromIndex(item.Index, item.Texture);
                                     // DO WE NEED TO SET PIXEL? TO TILE MASTER OR JUST HERE
@@ -752,7 +845,8 @@ namespace MageFollower.Client
                         case EditingMode.DrawBackground:
                             _mode = EditingMode.None;
                             break;                        
-                    }                    
+                    }
+                    _chooseColorDrawMode.Hidden = _mode != EditingMode.DrawBackground;
                 }
 
                 if (_mode == EditingMode.PlacingTerrain)
@@ -762,16 +856,19 @@ namespace MageFollower.Client
 
                 if (Input.MouseState.LeftButton == ButtonState.Pressed)
                 {
-                    _targetPos = GetMouseWorldPos(Input.MouseState);
-                    if (_targetEntity != null)
+                    if(FocusedControl == null || !FocusedControl.DoesBlockMouseClick())
                     {
-                        SetTargetOnServer(null);
-                    }
-                    if(_taskTarget != null)
-                    {
-                        SetTargetOnEnviroment(null);
-                    }
-                    _mousePressScale = 1.0f;
+                        _targetPos = GetMouseWorldPos(Input.MouseState);
+                        if (_targetEntity != null)
+                        {
+                            SetTargetOnServer(null);
+                        }
+                        if (_taskTarget != null)
+                        {
+                            SetTargetOnEnviroment(null);
+                        }
+                        _mousePressScale = 1.0f;
+                    }                    
                 }
 
                 if (_targetEntity != null)
@@ -1003,26 +1100,35 @@ namespace MageFollower.Client
         public override void Draw(GameTime gameTime, SpriteBatch _spriteBatch)
         {
             Client.GraphicsDevice.Clear(Color.DarkGreen);
+            var transform = get_transformation(Client.GraphicsDevice);
 
-            _spriteBatch.Begin(SpriteSortMode.Immediate,
-                BlendState.AlphaBlend,
-                SamplerState.PointClamp,
-                null, null, null, get_transformation(Client.GraphicsDevice));
-
-            var listToDraw = _backgroundDisplayTile.GetTilesForPlayer(_player);
-            if (listToDraw != null)
+            if (_player != null)
             {
-                foreach (var item in listToDraw)
+
+                _spriteBatch.Begin(SpriteSortMode.Immediate,
+                    BlendState.AlphaBlend,
+                    SamplerState.AnisotropicClamp,
+                    null, null, null, transform);
+
+                var listToDraw = _backgroundDisplayTile.GetTilesForPos(new Point((int)_player.Position.X, (int)_player.Position.Y)); // _backgroundDisplayTile.GetTilesForPlayer(_player)
+
+                if (listToDraw != null)
                 {
-                    _spriteBatch.Draw(item.Value, new Vector2(item.Key.X, item.Key.Y), Color.White);
+                    foreach (var item in listToDraw)
+                    {
+                        _spriteBatch.Draw(item.Value, 
+                            new Rectangle(item.Key.X, item.Key.Y, BackgroundDisplayTile.ChunkSize, BackgroundDisplayTile.ChunkSize), 
+                            null, Color.White);
+                    }
                 }
+
+                _spriteBatch.End();
             }
 
-            _spriteBatch.End();
             _spriteBatch.Begin(SpriteSortMode.Deferred,
                 BlendState.AlphaBlend,
                 SamplerState.AnisotropicClamp,
-                null, null, null, get_transformation(Client.GraphicsDevice));
+                null, null, null, transform);
 
 
             // _spriteBatch.Draw(person01, playerPos, Color.White);
@@ -1198,7 +1304,7 @@ namespace MageFollower.Client
             }
 
             var list = _floatingTextList;
-            foreach (var itemPair in _floatingTextList)
+            foreach (var itemPair in list)
             {
                 var item = itemPair.Value;
                 if (item.DrawColorBackGround)
@@ -1255,9 +1361,8 @@ namespace MageFollower.Client
                 _spriteBatch.DrawString(Client.FontSmall, $"Creator Mode: {modeDesc}\r\nX: {_player.Position.X:n2}, Y: {_player.Position.Y:n2}\r\nFPS: {MathF.Round((float)(1.0f / gameTime.ElapsedGameTime.TotalSeconds), 2)}", new Vector2(10, 10),
                     Color.White, 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0);
             }
-            
 
-            _commandTextBoxUI?.Draw(_spriteBatch);
+            base.Container?.Draw(_spriteBatch);            
 
             _spriteBatch.End();
         }

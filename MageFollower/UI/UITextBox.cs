@@ -14,9 +14,11 @@ namespace MageFollower.UI
     {
         private List<char> _innerList = new();
         public int CursorPos;
-        private string _text;
-        public Vector2 Position;
+        private string _text;        
         public Color Color;
+        public SpriteFont Font;
+
+        public float FontScale = 1.0f;
 
         public string Text
         {
@@ -49,7 +51,11 @@ namespace MageFollower.UI
         public override void Draw(SpriteBatch spriteBatch)
         {
             if(!string.IsNullOrWhiteSpace(Text))
-                spriteBatch.DrawString(GameClient.DefaultFont, Text, Position, Color);
+            {
+                spriteBatch.DrawString(Font ?? GameClient.Font, Text, GetGlobalLocation(),
+                    Color, 0.0f, Vector2.Zero, FontScale, SpriteEffects.None, 0);
+            }
+                
         }
 
         public override void Update(InputHandler inputHandler)
@@ -65,7 +71,8 @@ namespace MageFollower.UI
             {
                 if(inputHandler.PrevKeyboardState.IsKeyUp(item))
                 {
-                    if(insertOrAddChar(item, inputHandler.KeyboardState.CapsLock))
+                    if(insertOrAddChar(item, inputHandler.KeyboardState.CapsLock, 
+                        inputHandler.KeyboardState.IsKeyDown(Keys.LeftShift) || inputHandler.KeyboardState.IsKeyDown(Keys.RightShift)))
                     {
                         didChange = true;
                     }
@@ -79,17 +86,52 @@ namespace MageFollower.UI
 
             base.Update(inputHandler);
         }
-
-        private bool insertOrAddChar(Keys key, bool capsLock)
+        public static Keys[] OtherKeys = new Keys[] {
+            Keys.Space,
+            Keys.OemSemicolon,
+            Keys.OemQuotes,
+            Keys.OemComma,
+            Keys.OemPeriod,
+            Keys.OemMinus,
+            Keys.OemPlus
+        };
+        private bool insertOrAddChar(Keys key, bool capsLock, bool shift)
         {
             // TODO make a helper Func keys to valid char.
-            if ((key >= Keys.A && key <= Keys.Z) || (key >= Keys.NumPad0 && key <= Keys.NumPad9) || key == Keys.Space)
+            if ((key >= Keys.A && key <= Keys.Z) || (key >= Keys.NumPad0 && key <= Keys.NumPad9) || (key >= Keys.D0 && key <= Keys.D9) || OtherKeys.Any(o => key == o))
             {                
                 char charToAdd;
 
                 if(key >= Keys.NumPad0 && key <= Keys.NumPad9)
                 {
                     charToAdd = (char)(key - 48);
+                }else if (key >= Keys.D0 && key <= Keys.D9)
+                {
+                    charToAdd = (char)(key);
+                }
+                else if(key == Keys.OemSemicolon)
+                {
+                    charToAdd = shift ? ':' : ';';
+                }
+                else if (key == Keys.OemQuotes)
+                {
+                    charToAdd = shift ? '\"' : '\'';
+                }
+                else if (key == Keys.OemComma)
+                {
+                    charToAdd = shift ? '<' : ',';
+                }
+                else if (key == Keys.OemPeriod)
+                {
+                    charToAdd = shift ? '>' : '.';
+                }
+                else if (key == Keys.OemMinus)
+                {
+                    charToAdd = shift ? '_' : '-';
+                }
+                else if (key == Keys.OemPlus)
+                {
+                    charToAdd = shift ? '=' : '+';
                 }
                 else
                 {

@@ -19,8 +19,10 @@ namespace MageFollower.World.BackgroundTile
             _gameState = gameState;
         }
 
-        public const int ChunkSize = 1024;
+        public const int ChunkSize = 512;
         public static int ChunkSizeHalf = ChunkSize / 2;
+
+        public static Color[] ImageCache = null;
 
         private ConcurrentDictionary<Point, Texture2D> _cacheTextureSystem = new();
         public Point GetChunkIndexByWorldPos(Point pt)
@@ -32,17 +34,36 @@ namespace MageFollower.World.BackgroundTile
             int newX;
             int newY;
 
+            if(pt.X > 0 && pt.X < ChunkSize)
+            {
+                newX = 0;
+            }else if (pt.X < 0 && pt.X >= -ChunkSize)
+            {
+                newX = -ChunkSize;
+            }
+            else
+            {
+                newX = (int)MathF.Round((xMH) / ChunkSize) * ChunkSize;
+            }
 
-            newX = (int)MathF.Round((xMH) / ChunkSize) * ChunkSize;
-            newY = (int)MathF.Round((yMH) / ChunkSize) * ChunkSize;
+            if (pt.Y > 0 && pt.Y < ChunkSize)
+            {
+                newY = 0;
+            }
+            else if (pt.Y < 0 && pt.Y >= -ChunkSize)
+            {
+                newY = -ChunkSize;
+            }
+            else
+            {
+                newY = (int)MathF.Round((yMH) / ChunkSize) * ChunkSize;
+            }
 
             return new Point(newX, newY);
         }
 
-        public Dictionary<Point, Texture2D> GetTilesForPlayer(Entity player)
-        {
-            if (player == null)
-                return null;
+        public Dictionary<Point, Texture2D> GetTilesForPos(Point pos)
+        {            
             var width = _gameState.Client.GraphicsDevice.Viewport.Width;
             var height = _gameState.Client.GraphicsDevice.Viewport.Height;
 
@@ -50,12 +71,17 @@ namespace MageFollower.World.BackgroundTile
             height = (int)(height * (1.0f / _gameState.WorldZoom));
 
             // lets get view...            
-            var half = new Vector2(
-                width * 0.5f, 
-                (height * 0.5f));
+            var half = new Point(
+                (int)(width * 0.5f), 
+                (int)(height * 0.5f));
 
-            var start = player.Position - half;
+            
 
+            var start = new Point(pos.X - half.X, pos.Y - half.Y);
+
+            var startChunk = GetChunkIndexByWorldPos(start);
+
+            var rectangeView = new Rectangle(start, new Point(width, height));
             var list = new Dictionary<Point, Texture2D>();
 
             var howManyColumns = (int)Math.Max((float)width / ChunkSize, 1) + 2;
@@ -65,13 +91,17 @@ namespace MageFollower.World.BackgroundTile
             {
                 for (int y = -1; y < howManyRows; y++)
                 {
-                   var index =  GetChunkIndexByWorldPos(new Point(
-                        (int)(start.X + (x * ChunkSize)),
-                        (int)(start.Y + (y * ChunkSize))));
-
-                    if(!list.ContainsKey(index))
+                    var index = startChunk + new Point(x * ChunkSize, y * ChunkSize);
+                    if(rectangeView.Intersects(new Rectangle(index, new Point(ChunkSize, ChunkSize))))
                     {
-                        list[index] = GetTextureFromIndex(index);
+                        if (!list.ContainsKey(index))
+                        {
+                            list[index] = GetTextureFromIndex(index);
+                        }
+                        else
+                        {
+
+                        }
                     }
                 }
             }
@@ -79,7 +109,7 @@ namespace MageFollower.World.BackgroundTile
             return list;
         }
 
-        public List<(Point Index, Texture2D Texture)> GetTexturesFromTwoPoints(Point point1, Point point2)
+        public List<(Point Index, Texture2D Texture)> GetTexturesFromTwoPoints(Point point1, Point point2, int penThinkness = 1)
         {
             var list = new List<(Point Index, Texture2D Texture)>();
             var chunkIndex1 = GetChunkIndexByWorldPos(point1);
@@ -88,13 +118,75 @@ namespace MageFollower.World.BackgroundTile
             if(chunkIndex2 == chunkIndex1)
             {
                 list.Add((chunkIndex1, GetTextureFromIndex(chunkIndex1)));
+                if (penThinkness > 1)
+                {
+                    GetTexturesFromNearEdge(list, chunkIndex2, point1, penThinkness);                   
+                }
                 return list; 
             }
 
             list.Add((chunkIndex1, GetTextureFromIndex(chunkIndex1)));
             list.Add((chunkIndex2, GetTextureFromIndex(chunkIndex2)));
 
+            if (penThinkness > 1)
+            {
+                GetTexturesFromNearEdge(list, chunkIndex2, point1, penThinkness);
+                GetTexturesFromNearEdge(list, chunkIndex2, point2, penThinkness);                
+            }
+
             return list;            
+        }
+
+        public void GetTexturesFromNearEdge(List<(Point Index, Texture2D Texture)> list, Point chunkPoint, Point point, int penThinkness = 1)
+        {
+            var xNewChunk = GetChunkIndexByWorldPos(point + new Point(penThinkness, 0));
+            if (!list.Any(o => o.Index == xNewChunk))
+            {
+                list.Add((xNewChunk, GetTextureFromIndex(xNewChunk)));
+            }
+            var xNewChunk2 = GetChunkIndexByWorldPos(point - new Point(penThinkness, 0));
+            if (!list.Any(o => o.Index == xNewChunk2))
+            {
+                list.Add((xNewChunk2, GetTextureFromIndex(xNewChunk2)));
+            }
+
+            var xNewChunk3 = GetChunkIndexByWorldPos(point - new Point(penThinkness, penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk3))
+            {
+                list.Add((xNewChunk3, GetTextureFromIndex(xNewChunk3)));
+            }
+
+
+            var xNewChunk4 = GetChunkIndexByWorldPos(point + new Point(penThinkness, penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk4))
+            {
+                list.Add((xNewChunk4, GetTextureFromIndex(xNewChunk4)));
+            }
+
+            var xNewChunk5 = GetChunkIndexByWorldPos(point + new Point(-penThinkness, penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk5))
+            {
+                list.Add((xNewChunk5, GetTextureFromIndex(xNewChunk5)));
+            }
+
+
+            var xNewChunk6 = GetChunkIndexByWorldPos(point + new Point(penThinkness, -penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk6))
+            {
+                list.Add((xNewChunk6, GetTextureFromIndex(xNewChunk6)));
+            }
+
+            var xNewChunk7 = GetChunkIndexByWorldPos(point - new Point(0, penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk7))
+            {
+                list.Add((xNewChunk7, GetTextureFromIndex(xNewChunk7)));
+            }
+
+            var xNewChunk8 = GetChunkIndexByWorldPos(point + new Point(0, penThinkness));
+            if (!list.Any(o => o.Index == xNewChunk8))
+            {
+                list.Add((xNewChunk8, GetTextureFromIndex(xNewChunk8)));
+            }            
         }
 
         public Texture2D GetTextureFromIndex(Point chunkIndex)

@@ -28,6 +28,15 @@ namespace MageFollower.Creator
             return colors1D;
         }
 
+        public static void GetPixels(this Texture2D texture, ref  Color[] colors1D)
+        {
+            if(colors1D == null)
+            {
+                colors1D = new Color[texture.Width * texture.Height];
+            }            
+            texture.GetData(colors1D);            
+        }
+
         public static int LINE_OVERLAP_NONE = 0 ;	// No line overlap, like in standard Bresenham
         public static int LINE_OVERLAP_MAJOR = 0x01; // Overlap - first go major then minor direction. Pixel is drawn as extension after actual line
         public static int LINE_OVERLAP_MINOR = 0x02; // Overlap - first go minor then major direction. Pixel is drawn as extension before next line
@@ -37,47 +46,45 @@ namespace MageFollower.Creator
         public static int LINE_THICKNESS_DRAW_CLOCKWISE = 1;         // Start point is on the counter clockwise border line
         public static int LINE_THICKNESS_DRAW_COUNTERCLOCKWISE = 2;  // Start point is on the clockwise border line
 
+        public static void FillCircle(ref Color[] colors, int textureWidth, int textureHeight, int radius, int startX, int startY, Color color)
+        {
+            var radiusTimes = radius * radius;
+            for (int y = -radius; y <= radius; y++)
+            {
+                var yTimes = y * y;
+                for (int x = -radius; x <= radius; x++)
+                {
+                    if (x * x + yTimes <= radiusTimes)
+                    {
+                        var setX = startX + x;
+                        var setY = startY + y;
+                        if (setX >= 0 && setY >= 0 && setX < textureWidth && setY < textureHeight)
+                            SetPixel(ref colors, color, setX, setY, textureWidth);
+                    }
+                }
+            }                
+        }
+
+        public static void DrawLineWithCircles(ref Color[] colors, int textureWidth, int textureHeight, int x0, int y0, int x1, int y1, int thinkness, Color color)
+        {
+            int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+            int dy = Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+            int err = (dx > dy ? dx : -dy) / 2, e2;
+            for (; ; )
+            {
+                FillCircle(ref colors, textureWidth, textureHeight, thinkness, x0, y0, color);
+
+                if (x0 == x1 && y0 == y1) break;
+                e2 = err;
+                if (e2 > -dx) { err -= dy; x0 += sx; }
+                if (e2 < dy) { err += dx; y0 += sy; }
+            }
+        }
 
         public static void DrawLineOverlap(ref Color[] colors, int textureWidth, int textureHeight,  int aXStart, int aYStart, int aXEnd, int aYEnd, int aOverlap,
         Color aColor)
         {
             int tDeltaX, tDeltaY, tDeltaXTimes2, tDeltaYTimes2, tError, tStepX, tStepY;
-
-            /*
-             * Clip to display size
-             */
-            if (aXStart >= textureWidth)
-            {
-                aXStart = textureWidth - 1;
-            }
-            if (aXStart < 0)
-            {
-                aXStart = 0;
-            }
-            if (aXEnd >= textureWidth)
-            {
-                aXEnd = textureWidth - 1;
-            }
-            if (aXEnd < 0)
-            {
-                aXEnd = 0;
-            }
-            if (aYStart >= textureHeight)
-            {
-                aYStart = textureHeight - 1;
-            }
-            if (aYStart < 0)
-            {
-                aYStart = 0;
-            }
-            if (aYEnd >= textureHeight)
-            {
-                aYEnd = textureHeight - 1;
-            }
-            if (aYEnd < 0)
-            {
-                aYEnd = 0;
-            }
 
             //calculate direction
             tDeltaX = aXEnd - aXStart;
@@ -168,41 +175,6 @@ namespace MageFollower.Creator
             if (aThickness <= 1)
             {
                 DrawLineOverlap(ref colors, textureWidth, textureHeight, aXStart, aYStart, aXEnd, aYEnd, LINE_OVERLAP_NONE, aColor);
-            }
-            /*
-             * Clip to display size
-             */
-            if (aXStart >= textureWidth)
-            {
-                aXStart = textureWidth - 1;
-            }
-            if (aXStart < 0)
-            {
-                aXStart = 0;
-            }
-            if (aXEnd >= textureWidth)
-            {
-                aXEnd = textureWidth - 1;
-            }
-            if (aXEnd < 0)
-            {
-                aXEnd = 0;
-            }
-            if (aYStart >= textureHeight)
-            {
-                aYStart = textureHeight - 1;
-            }
-            if (aYStart < 0)
-            {
-                aYStart = 0;
-            }
-            if (aYEnd >= textureHeight)
-            {
-                aYEnd = textureHeight - 1;
-            }
-            if (aYEnd < 0)
-            {
-                aYEnd = 0;
             }
 
             /**
