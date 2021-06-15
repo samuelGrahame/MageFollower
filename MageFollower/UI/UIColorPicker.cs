@@ -1,4 +1,5 @@
 ﻿using MageFollower.Client;
+using MageFollower.Creator;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -18,6 +19,16 @@ namespace MageFollower.UI
         {
         }
 
+        public Color GetColorFromInputHandler(Color prevColor, InputHandler inputHandler)
+        {
+            var textureToGetPixelFrom = Texture;
+            if (textureToGetPixelFrom == null)
+                return prevColor;
+            var pixelIndex = inputHandler.MouseState.Position - GetGlobalLocation().ToPoint();
+            var pixels = Creator.Texture2DHelper.GetPixels(textureToGetPixelFrom);
+            return Texture2DHelper.GetPixel(ref pixels, pixelIndex.X, pixelIndex.Y, textureToGetPixelFrom.Width);
+        }
+
         public Texture2D Texture => texture;
 
         public override bool DoesBlockMouseClick()
@@ -34,7 +45,7 @@ namespace MageFollower.UI
         }
         public override void OnMouseDownMove(InputHandler inputHandler)
         {
-            Clicked?.Invoke(this, inputHandler);
+            MouseDownMoved?.Invoke(this, inputHandler);
         }
         bool _created = false;
         public override void Draw(SpriteBatch spriteBatch)

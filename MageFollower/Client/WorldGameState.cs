@@ -126,16 +126,15 @@ namespace MageFollower.Client
             {
                 Position = new Vector2(10, 85),
                 Hidden = true,
+                Clicked = (sender, input) => {
+                    if (_mode != EditingMode.DrawBackground)
+                        return;
+                    DrawColor = sender.GetColorFromInputHandler(DrawColor, input);
+                },
                 MouseDownMoved = (sender, input) => {
                     if (_mode != EditingMode.DrawBackground)
                         return;
-
-                    var textureToGetPixelFrom = sender.Texture;
-                    if (textureToGetPixelFrom == null)
-                        return;
-                    var pixelIndex = input.MouseState.Position - sender.GetGlobalLocation().ToPoint();
-                    var pixels = Creator.Texture2DHelper.GetPixels(textureToGetPixelFrom);
-                    DrawColor = Texture2DHelper.GetPixel(ref pixels, pixelIndex.X, pixelIndex.Y, textureToGetPixelFrom.Width);
+                    DrawColor = sender.GetColorFromInputHandler(DrawColor, input);
                 }
             });
             //_chooseColorDrawMode
