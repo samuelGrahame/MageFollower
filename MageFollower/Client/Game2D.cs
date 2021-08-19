@@ -91,10 +91,10 @@ namespace MageFollower.Client
         }
         protected override void LoadContent()
         {
-            _graphics.PreferredBackBufferWidth = 1920;
-            _graphics.PreferredBackBufferHeight = 1010;
-            _graphics.IsFullScreen = false;
-            _graphics.ApplyChanges();
+            //_graphics.PreferredBackBufferWidth = 1920;
+            //_graphics.PreferredBackBufferHeight = 1010;
+            //_graphics.IsFullScreen = false;
+            //_graphics.ApplyChanges();
 
             IsMouseVisible = true;
             _spriteBatch = new SpriteBatch(GraphicsDevice);
