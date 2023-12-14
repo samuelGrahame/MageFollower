@@ -1,4 +1,5 @@
-﻿using MageFollower.PacketData;
+﻿using MageFollower.Client;
+using MageFollower.PacketData;
 using MageFollower.Projectiles;
 using MageFollower.World.Element;
 using MageFollower.World.Items;
@@ -6,7 +7,9 @@ using MageFollower.World.Skills;
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using static MageFollower.Program;
@@ -41,14 +44,36 @@ namespace MageFollower.World
         [JsonProperty("i7")]
         public float Speed = 100;
 
+        //[JsonIgnore]
+        //public Vector2 TargetPos;
+        //[JsonIgnore]
+        //public float TargetRotation;
+        //[JsonIgnore]
+        public static float LerpToTargerTime = 0.15f;
+        
+        public void AddTarget(Vector2 _targetPos, float _targetRotation)
+        {
+            TargetActions ??= new ConcurrentQueue<MovementToLerp>();
+            
+            TargetActions.Enqueue(new MovementToLerp
+            {
+                TargetRotation = _targetRotation,
+                TargetPos = _targetPos,
+                LerpTimeLeft = LerpToTargerTime
+            });
+        }
+
+        public MovementToLerp CurrentTarget = null;
+
         [JsonIgnore]
-        public Vector2 TargetPos;
-        [JsonIgnore]
-        public float TargetRotation;
-        [JsonIgnore]
-        public bool LerpToTarger;
-        [JsonIgnore]
-        public double TotalTimeLerp;
+        public ConcurrentQueue<MovementToLerp> TargetActions; // = new ConcurrentQueue<MovementToLerp>();
+
+        public class MovementToLerp
+        {
+            public Vector2 TargetPos;
+            public float TargetRotation;
+            public float LerpTimeLeft;
+        }
 
         public ProjectileTypes GetProjectTileType()
         {
@@ -98,7 +123,7 @@ namespace MageFollower.World
                 case ProjectileTypes.EnergyBall:
                     return 2500;
                 case ProjectileTypes.Arrow:
-                    return 1500;
+                    return 10; // 1500;
             }
         }
 

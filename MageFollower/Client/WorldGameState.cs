@@ -53,13 +53,13 @@ namespace MageFollower.Client
         private Socket _sender;
         private string _passCode;
         private string _playerId;
-        private double _lastTimeSentToServer = 0;
+        //private double _lastTimeSentToServer = 0;
 
         private ConcurrentQueue<string> _dataToSend = new();
         private ConcurrentDictionary<Guid, FloatingDamageText> _floatingTextList = new();
 
-        private double _moveLerpTimer = (1000 / 10.0f);
-        private double _sendToServerTimer = (1000 / 20.0f);
+        //public static double _moveLerpTimer = (1000 / 10.0f);
+        //private double _sendToServerTimer = (1000 / 20.0f);
         private Vector2 _prevPos;
         private float _prevRotation;
         private EnviromentType _itemTpAddOnRightClick = EnviromentType.Tree01;
@@ -277,11 +277,7 @@ namespace MageFollower.Client
                                         _passCode = arrary[0];
                                         _playerId = arrary[1];
 
-
-                                        if (_entitiesById.ContainsKey(_playerId))
-                                        {
-                                            _player = _entitiesById[_playerId];
-                                        }
+                                        _entitiesById.TryGetValue(_playerId, out _player);                                        
                                     }
                                     else if (item.StartsWith("NEW:"))
                                     {
@@ -293,10 +289,7 @@ namespace MageFollower.Client
                                             _player = newEntity;
                                         }
 
-                                        if (!_entitiesById.ContainsKey(newEntity.Id))
-                                        {
-                                            _entitiesById[newEntity.Id] = newEntity;
-                                        }
+                                        _entitiesById.TryAdd(newEntity.Id, newEntity);                                        
                                     }
                                     else if (item.StartsWith("NEW-P:"))
                                     {
@@ -318,14 +311,13 @@ namespace MageFollower.Client
 
                                         if (string.CompareOrdinal(id, _playerId) != 0)
                                         {
-                                            var transform = JsonConvert.DeserializeObject<Transform>(IdAndTransform.Substring(placeOfSemi + 1), JsonHelper.Config);
-                                            if (_entitiesById.ContainsKey(id))
-                                            {
-                                                var entity = _entitiesById[id];
-                                                entity.TargetPos = transform.Position;
-                                                entity.TargetRotation = transform.Rotation;
-                                                entity.TotalTimeLerp = 0;
-                                                entity.LerpToTarger = true;
+                                            var transform = JsonConvert.DeserializeObject<Transform>(
+                                                IdAndTransform.Substring(placeOfSemi + 1), JsonHelper.Config);
+
+                                            if(_entitiesById.TryGetValue(id, out Entity entity))
+                                            {                                                
+                                                entity.
+                                                    AddTarget(transform.Position, transform.Rotation);
                                             }
                                         }
                                     }
@@ -437,10 +429,7 @@ namespace MageFollower.Client
                                             _player = null;
                                         }
 
-                                        if (_entitiesById.ContainsKey(idToRemove))
-                                        {
-                                            _entitiesById.Remove(idToRemove, out _);
-                                        }
+                                        _entitiesById.TryRemove(idToRemove, out _);
                                         //DEL: { entityToRemove.Id}< EOF >
                                     }
                                 }
@@ -965,12 +954,11 @@ namespace MageFollower.Client
 
                 }
 
-                _lastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
+                //_lastTimeSentToServer += gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                if (_lastTimeSentToServer > _sendToServerTimer &&
-                    (_prevPos != _player.Position || _prevRotation != _player.Rotation))
+                if ((_prevPos != _player.Position || _prevRotation != _player.Rotation)) // _lastTimeSentToServer > _sendToServerTimer &&
                 {
-                    _lastTimeSentToServer = 0;
+                    //_lastTimeSentToServer = 0;
                     _dataToSend.Enqueue($"POS:{JsonConvert.SerializeObject(new Transform() { Position = _player.Position, Rotation = _player.Rotation }, JsonHelper.Config)}<EOF>");
 
                     _prevPos = _player.Position;
@@ -992,23 +980,44 @@ namespace MageFollower.Client
             foreach (var itemPair in _entitiesById)
             {
                 var item = itemPair.Value;
-                if (item != _player && item.LerpToTarger)
+
+                if (item == _player)
+                    continue;
+
+                if(item.CurrentTarget == null)
                 {
-                    item.TotalTimeLerp += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                    var percent = (float)(item.TotalTimeLerp / _moveLerpTimer);
-                    if (item.TotalTimeLerp >= _moveLerpTimer)
+                    if(item.TargetActions?.Count > 0)
                     {
-                        item.TotalTimeLerp = _moveLerpTimer;
-                        item.Position = item.TargetPos;
-                        item.LerpToTarger = false;
+                        if(item.TargetActions.TryDequeue(out Entity.MovementToLerp result) 
+                            && result != null)
+                        {
+                            item.CurrentTarget = result;
+                        }                        
                     }
-                    if (item.TargetPos != item.Position)
+                }
+
+                if(item.CurrentTarget != null)
+                {
+                    var target = item.CurrentTarget;
+                    target.LerpTimeLeft -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                    if (target.LerpTimeLeft < 0)
                     {
-                        item.Position = Vector2.LerpPrecise(item.Position, item.TargetPos, percent);
+                        target.LerpTimeLeft = 0;
+                        item.CurrentTarget = null;
                     }
 
-                    if (item.TargetRotation != item.Rotation)
-                        item.Rotation = item.TargetRotation;//; MathHelper.Lerp(item.Rotation, item.TargetRotation, percent);
+                    var percent = target.LerpTimeLeft <= 0 ? 1.0f : target.LerpTimeLeft / Entity.LerpToTargerTime;
+
+                    if (target.TargetPos != item.Position)
+                    {
+                        item.Position = Vector2.LerpPrecise(
+                            item.Position, target.TargetPos, percent);
+                    }
+                    if (target.TargetRotation != item.Rotation)
+                    {
+                        item.Rotation = 
+                            MathHelper.LerpPrecise(item.Rotation, target.TargetRotation, percent);                        
+                    }
                 }
             }
             // TODO: Lock
